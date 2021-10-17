@@ -136,7 +136,7 @@ void ExecuteStage::handle_request(common::StageEvent *event) {
     case SCF_DESC_TABLE:
     case SCF_DROP_TABLE:
     case SCF_CREATE_INDEX:
-    case SCF_DROP_INDEX: 
+    case SCF_DROP_INDEX:
     case SCF_LOAD_DATA: {
       StorageEvent *storage_event = new (std::nothrow) StorageEvent(exe_event);
       if (storage_event == nullptr) {
@@ -213,6 +213,44 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
   }
 }
 
+//lds:打印多表数据
+void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, bool finished=false) {
+  if(finished) {
+    return;
+  }
+  if(index==tuple_sets.size()){
+    for(int i=0;i<tuples.size();++i) {
+      const std::vector<std::shared_ptr<TupleValue>> &values = tuples[i]->values();
+      for (std::vector<std::shared_ptr<TupleValue>>::const_iterator iter = values.begin(), end = --values.end();
+           iter != end; ++iter) {
+        (*iter)->to_string(os);
+        os << " | ";
+      }
+      values.back()->to_string(os);
+      if(i==tuples.size()-1){
+        os << std::endl;
+      } else {
+        os << " | ";
+      }
+    }
+    finished=true;
+    return ;
+  }
+
+  auto& ts=tuple_sets[index].tuples();
+
+  if(ts.empty()) {
+    finished=true;
+    return;
+  }
+
+  for(auto& t:ts) {
+    tuples.push_back(&t);
+    print_tuple_sets(tuple_sets,index+1,tuples,os,finished);
+    tuples.pop_back();
+  }
+}
+
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
 RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_event) {
@@ -262,6 +300,16 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   std::stringstream ss;
   if (tuple_sets.size() > 1) {
     // 本次查询了多张表，需要做join操作
+    LOG_DEBUG("print multi table tuple set");
+
+    TupleSchema schema;
+    for(auto& tuple_set:tuple_sets){
+        schema.append(tuple_set.get_schema());
+    }
+    schema.print(ss);
+    std::vector<const Tuple*> tuples;
+
+    print_tuple_sets(tuple_sets,0,tuples,ss);
   } else {
     // 当前只查询一张表，直接返回结果即可
     tuple_sets.front().print(ss);
@@ -346,3 +394,4 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
 
   return select_node.init(trx, table, std::move(schema), std::move(condition_filters));
 }
+
