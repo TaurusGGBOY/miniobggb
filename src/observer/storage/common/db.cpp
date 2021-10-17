@@ -71,6 +71,26 @@ RC Db::create_table(const char *table_name, int attribute_count, const AttrInfo 
   return RC::SUCCESS;
 }
 
+RC Db::drop_table(const char* table_name){
+  Table *table = this->find_table(table_name);
+  if(table==nullptr){
+    //只返回failure?
+    LOG_INFO("There is no table %s to drop.", table_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  std::string meta_path = table_meta_file(path_.c_str(), table_name);
+  //删除文件(索引文件，数据文件，元数据文件)
+  RC rc = table->drop(meta_path.c_str(),table_name,path_.c_str());
+  if(rc!=RC::SUCCESS){
+    return rc;
+  }
+  //从hashmap中删除
+  this->opened_tables_.erase(table_name);
+
+  delete table;
+  return RC::SUCCESS;
+}
+
 Table *Db::find_table(const char *table_name) const {
   std::unordered_map<std::string, Table *>::const_iterator iter = opened_tables_.find(table_name);
   if (iter != opened_tables_.end()) {

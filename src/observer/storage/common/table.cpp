@@ -111,6 +111,34 @@ RC Table::create(const char *path, const char *name, const char *base_dir, int a
   return rc;
 }
 
+RC Table::drop(const char *path, const char *name, const char *base_dir){
+  //删除table元数据文件
+  int ok = ::remove(path);
+  if(ok!=0){
+    LOG_ERROR("Failed to delete %s when drop %s.",path,name);
+    return RC::IOERR;
+  }
+  //删除数据文件
+  std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
+  ok = ::remove(data_file.c_str());
+  if(ok!=0){
+    LOG_ERROR("Failed to delete %s when drop %s.",path,name);
+    return RC::IOERR;
+  }
+  //删除索引文件
+  for(Index* index :this->indexes_){
+    const char* indexname = (index->index_meta()).name();
+    std::string indexFile = index_data_file(base_dir,name,indexname);
+    ok = ::remove(indexFile.c_str());
+    if(ok!=0){
+      LOG_ERROR("Failed to delete %s when drop %s.",path,name);
+      return RC::IOERR;
+    }
+  }
+  return RC::SUCCESS;
+  //删除缓冲池中数据文件TODO
+}
+
 RC Table::open(const char *meta_file, const char *base_dir) {
   // 加载元数据文件
   std::fstream fs;
