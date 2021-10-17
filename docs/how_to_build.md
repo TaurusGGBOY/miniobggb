@@ -1,55 +1,107 @@
-# How to build
-1. install cmake
+**# How to build**
+
+\1. install cmake
 
 
 
-2. build libevent
 
-```
 
-git submodule add https://github.com/libevent/libevent deps/libevent
+\2. build libevent
+
+
+
+\```
+
+
+
+git submodule add -f git@github.com:libevent/libevent.git deps/libevent
+
 cd deps
+
 cd libevent
+
 git checkout release-2.1.12-stable
+
 mkdir build
+
 cd build
+
 cmake .. -DEVENT__DISABLE_OPENSSL=ON
+
 make
+
 sudo make install
-```
 
-3. build google test
-```
+\```
 
-git submodule add https://github.com/google/googletest deps/googletest
+
+
+\3. build google test
+
+\```
+
+
+
+git submodule add -f git@github.com:google/googletest.git deps/googletest
+
 cd deps
+
 cd googletest
+
 mkdir build
+
 cd build
+
 cmake ..
+
 make
+
 sudo make install
-```
 
-4. build jsoncpp
-```shell
+\```
 
-git submodule add https://github.com/open-source-parsers/jsoncpp.git deps/jsoncpp
+
+
+\4. build jsoncpp
+
+\```shell
+
+
+
+git submodule add -f git@github.com:open-source-parsers/jsoncpp.git deps/jsoncpp
+
 cd deps
+
 cd jsoncpp
+
 mkdir build
+
 cd build
+
 cmake -DJSONCPP_WITH_TESTS=OFF -DJSONCPP_WITH_POST_BUILD_UNITTEST=OFF ..
+
 make
+
 sudo make install
-```
 
-5. build miniob
+\```
 
-```shell
+
+
+\5. build miniob
+
+
+
+\```shell
+
 cd `project home`
+
 mkdir build
+
 cd build
+
 cmake ..
+
 make
-```
+
+\```

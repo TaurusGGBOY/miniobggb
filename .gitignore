@@ -1,0 +1,7 @@
+.vscode
+build
+deps/googletest
+deps/jsoncpp
+deps/libevent
+observer.log.*
+miniob/db/sys
