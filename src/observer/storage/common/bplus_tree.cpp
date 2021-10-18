@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
+#include "storage/common/date.h"
 
 int float_compare(float f1, float f2) {
   float result = f1 - f2;
@@ -186,6 +187,16 @@ int CompareKey(const char *pdata, const char *pkey,AttrType attr_type,int attr_l
       return strncmp(s1, s2, attr_length);
     }
       break;
+    case DATES: {
+      s1 = pdata;
+      s2 = pkey;
+      Date& date = Date::get_instance();
+      // TODO if should force convert 
+      std::string str1 = pdata;
+      std::string str2 = pkey;
+      return date.compare(str1, str2);
+    }
+      break;  
     default:{
       LOG_PANIC("Unknown attr type: %d", attr_type);
     }

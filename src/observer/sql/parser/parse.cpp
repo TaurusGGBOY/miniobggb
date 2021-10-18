@@ -52,6 +52,10 @@ void value_init_string(Value *value, const char *v) {
   value->type = CHARS;
   value->data = strdup(v);
 }
+void value_init_date(Value *value, const char *v) {
+  value->type = DATES;
+  value->data = strdup(v);
+}
 void value_destroy(Value *value) {
   value->type = UNDEFINED;
   free(value->data);
@@ -90,6 +94,8 @@ void condition_destroy(Condition *condition) {
 }
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
+  LOG_INFO("in there but may be nothing");
+  LOG_INFO("%s, %d, %d", name, (int)type, length);
   attr_info->name = strdup(name);
   attr_info->type = type;
   attr_info->length = length;
