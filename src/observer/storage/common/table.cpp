@@ -547,8 +547,65 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   return rc;
 }
 
-RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num, const Condition conditions[], int *updated_count) {
-  return RC::GENERIC_ERROR;
+class RecordUpdater{
+  //仅支持单字段更新
+  public:
+  RecordUpdater(Table& tab,Trx* trx,const char* attr_name, const Value* value):table_(tab),trx_(trx),value_(value){
+    field_ = tab.table_meta_.field(attr_name);
+  }
+
+  RC update_record(Record* rec){
+    RC rc = RC::SUCCESS;
+    rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
+
+    //将value的值复制到对应的偏移量处
+    memcpy(rec->data + field_->offset(), value_->data, field_->len());
+
+    if(rc==RC::SUCCESS){
+      //update索引
+      table_.insert_entry_of_indexes(rec->data,rec->rid);
+    } else if(rc!=RC::RECORD_INVALID_KEY){
+      return rc;
+    }
+    
+    rc = table_.update_record(trx_,rec);
+    if(rc==RC::SUCCESS){
+      update_count_++;
+    }
+    return rc;
+  }
+  
+  int update_count() const{
+    return update_count_;
+  }
+
+  private:
+    Table& table_;
+    Trx* trx_;
+    //const char* attr_name_;
+    const Value *value_;
+    const FieldMeta* field_;
+    int update_count_ = 0;
+};
+
+static RC record_reader_update_adapter(Record* record,void* context){
+  RecordUpdater &updater = *(RecordUpdater*)context;
+  return updater.update_record(record);
+}
+
+RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, ConditionFilter *filter, int *update_count) {
+  RecordUpdater updater(*this,trx,attribute_name,value);
+  RC rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
+  if(update_count!=nullptr){
+    *update_count = updater.update_count();
+  }
+
+  return rc;
+}
+
+RC Table::update_record(Trx* trx, Record* rec){
+  //未支持事务
+  return this->record_handler_->update_record(rec);
 }
 
 class RecordDeleter {
