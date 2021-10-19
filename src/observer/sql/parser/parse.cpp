@@ -16,6 +16,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include <string>
+#include "../../storage/common/date.h"
 
 RC parse(char *st, Query *sqln);
 
@@ -54,7 +56,14 @@ void value_init_string(Value *value, const char *v) {
 }
 void value_init_date(Value *value, const char *v) {
   value->type = DATES;
-  value->data = strdup(v);
+  Date& date = Date::get_instance();
+  int date_stamp = date.date_to_int(strdup(v));
+  if(date_stamp==-1){
+    value->data = nullptr;
+  }else{
+    value->data = malloc(sizeof(date_stamp));
+    memcpy(value->data, &date_stamp, sizeof(date_stamp));
+  }
 }
 void value_destroy(Value *value) {
   value->type = UNDEFINED;

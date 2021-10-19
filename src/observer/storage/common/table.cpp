@@ -298,6 +298,12 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
         field->name(), field->type(), value.type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
+    // if date format not match
+    if(value.type == DATES && value.data == nullptr){
+        LOG_ERROR("Invalid date type. field name=%s, type=%d, but given=%d",
+        field->name(), field->type(), value.type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
 
   // 复制所有字段的值
