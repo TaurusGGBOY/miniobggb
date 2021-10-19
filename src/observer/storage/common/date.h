@@ -18,13 +18,9 @@ public:
     Date(Date const &) = delete;
     void operator=(Date const &) = delete;
 
-    int date_to_int(std::string date);
-    int date_to_int(int date[]);
-    std::string int_to_date(int day);
-    bool is_legal(std::string date);
-    bool is_common_year(int year);
-    int *date_to_arr(std::string date);
-    int compare(std::string date1, std::string date2);
+    int date_to_int(const char * date);
+    void int_to_date(int day, char* buf);
+    bool is_legal(const char* date);
 };
 
 #endif // __OBSERVER_STORAGE_COMMON_DATE_H_
