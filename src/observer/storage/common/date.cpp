@@ -15,12 +15,13 @@ int Date::date_to_int(const char * date)
     strptime(date, "%Y-%m-%d", &tm);
     auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
     auto hours = std::chrono::time_point_cast<std::chrono::hours>(tp).time_since_epoch().count();
-    return (int)(hours/24);
+    int day = (int)(hours/24);
+    return day;
 }
 
 void Date::int_to_date(int day, char* buf)
 {
-    long long seconds = day * 24 * 60 * 60;
+    long long seconds = (day+1) * 24 * 60 * 60;
     std::time_t t(seconds);
     struct tm *ptr=localtime(&t);
     strftime(buf,40,"%Y-%m-%d",ptr);
