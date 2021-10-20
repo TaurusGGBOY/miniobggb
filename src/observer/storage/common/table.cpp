@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/index.h"
 #include "storage/common/bplus_tree_index.h"
 #include "storage/trx/trx.h"
+#include "storage/common/date.h"
 
 Table::Table() : 
     data_buffer_pool_(nullptr),
@@ -294,13 +295,11 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.type) {
+      // if dates or chars
+      if(field->type()==DATES&&value.type==CHARS){
+        continue;
+      }
       LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
-        field->name(), field->type(), value.type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
-    // if date format not match
-    if(value.type == DATES && value.data == nullptr){
-        LOG_ERROR("Invalid date type. field name=%s, type=%d, but given=%d",
         field->name(), field->type(), value.type);
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
@@ -313,7 +312,20 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
-    memcpy(record + field->offset(), value.data, field->len());
+    if(field->type()==DATES){
+        Date &date = Date::get_instance();
+        int date_int = date.date_to_int((const char*)value.data);
+        // if wrong date format
+        if(date_int==-1){
+          LOG_ERROR("Invalid date type. field name=%s, type=%d, but given=%d",
+          field->name(), field->type(), value.type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }else{
+          memcpy(record + field->offset(), &date_int, field->len());
+        }
+    }else{
+      memcpy(record + field->offset(), value.data, field->len());
+    }
   }
 
   record_out = record;
@@ -565,7 +577,15 @@ class RecordUpdater{
     rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
 
     //将value的值复制到对应的偏移量处
-    memcpy(rec->data + field_->offset(), value_->data, field_->len());
+    // if dates then save int rather char
+    if(field_->type()==DATES){
+      Date &date = Date::get_instance();
+      int date_int = date.date_to_int((const char*)value_->data);
+      memcpy(rec->data + field_->offset(), &date_int, field_->len());
+    }else{
+      memcpy(rec->data + field_->offset(), value_->data, field_->len());
+    }
+    
 
     if(rc==RC::SUCCESS){
       //update索引

@@ -97,8 +97,7 @@ extern int yydebug;
     PATH = 303,
     SSS = 304,
     STAR = 305,
-    STRING_V = 306,
-    DATE = 307
+    STRING_V = 306
   };
 #endif
 
@@ -116,7 +115,7 @@ union YYSTYPE
   float floats;
 	char *position;
 
-#line 120 "yacc_sql.tab.h"
+#line 119 "yacc_sql.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
