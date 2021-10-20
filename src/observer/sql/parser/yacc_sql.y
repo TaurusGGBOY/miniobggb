@@ -472,8 +472,7 @@ condition:
 		}
     |value comOp ID
 		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
-			RelAttr right_attr;
+			Value *left_value = &CONT没开始
 			relation_attr_init(&right_attr, NULL, $3);
 
 			Condition condition;

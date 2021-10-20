@@ -192,6 +192,9 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
   updates->relation_name = strdup(relation_name);
   updates->attribute_name = strdup(attribute_name);
   updates->value = *value;
+  //date input de shi const char *
+  // date store int
+  // date  values->gaichengyige
 
   assert(condition_num <= sizeof(updates->conditions)/sizeof(updates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {

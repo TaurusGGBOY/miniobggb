@@ -233,20 +233,9 @@ void TupleRecordConverter::add_record(const char *record) {
       case DATES:{
         int value = *(int*)(record + field_meta->offset());
         // TODO should delete?
-
-        // Date &date = Date::get_instance();
-        // char *date1 = "2012-12-12";
-        // char *date2 = "2000-12-12";
-        // int date_int1 = date.date_to_int(date1);
-        // printf("%d\n",date_int1);
-        // char buf[40];
-        // date.int_to_date(date_int1, buf);
-        printf("input int %d\n", value);
-
         char buf[40];
         Date &date = Date::get_instance();
         date.int_to_date(value, buf);
-        printf("output date %s\n", buf);
         tuple.add(buf, strlen(buf));
       }
         break;
