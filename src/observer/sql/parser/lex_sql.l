@@ -72,6 +72,11 @@ QUOTE            [\'\"]
 [Ll][Oo][Aa][Dd]			                   RETURN_TOKEN(LOAD);
 [Dd][Aa][Tt][Aa]	                       RETURN_TOKEN(DATA);
 [Ii][Nn][Ff][Ii][Ll][Ee]                 RETURN_TOKEN(INFILE);
+[Mm][Aa][Xx]						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
+[Mm][Ii][Nn] 						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
+[Aa][Vv][Gg]						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
+[Cc][Oo][Uu][Nn][Tt]				yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
+[Ss][Uu][Mm]						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
 {ID}							                       yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("								                       RETURN_TOKEN(LBRACE);
 ")"								                       RETURN_TOKEN(RBRACE);

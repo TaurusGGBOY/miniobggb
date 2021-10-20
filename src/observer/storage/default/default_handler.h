@@ -151,6 +151,8 @@ public:
   RC update_record(Trx * trx, const char *dbname, const char *relation_name, const char *attribute_name, const Value *value,
                             int condition_num, const Condition *conditions, int *updated_count);
 
+  RC aggregate_record(Trx* trx, const char *dbname, const char* relation_name,
+                        const AggregatesField* agg_fields,int agg_fileds_num,const Condition *conditions,int condition_num);
 public:
   Db *find_db(const char *dbname) const;
   Table *find_table(const char * dbname, const char *table_name) const;

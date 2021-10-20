@@ -117,6 +117,7 @@ ParserContext *get_context(yyscan_t scanner)
 %token <number> NUMBER
 %token <floats> FLOAT 
 %token <string> ID
+%token <string> AGGREGATE
 %token <string> PATH
 %token <string> SSS
 %token <string> STAR
@@ -344,7 +345,14 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where SEMICOLON
+	SELECT agg_field  FROM ID where SEMICOLON
+		{
+		//聚合运算的语法解析
+		CONTEXT->ssql->flag = SCF_AGGREGATE;
+		aggregates_init(&CONTEXT->ssql->sstr.aggregation,$4,CONTEXT->conditions, CONTEXT->condition_length);
+		CONTEXT->condition_length = 0;
+	}
+    | SELECT select_attr FROM ID rel_list where SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
@@ -359,9 +367,19 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
+			} 
+	;
+agg_field: 
+	AGGREGATE LBRACE ID RBRACE agg_field_list {
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$3,$1);
 	}
 	;
-
+agg_field_list:
+	/* empty */
+	| COMMA AGGREGATE LBRACE ID RBRACE agg_field_list{
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$4,$2);
+	}
+	;
 select_attr:
     STAR {  
 			RelAttr attr;

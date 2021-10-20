@@ -178,6 +178,10 @@ void DefaultStorageStage::handle_event(StageEvent *event) {
       snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
     }
     break;
+  case SCF_AGGREGATE:{
+      const Aggregates &aggregates = sql->sstr.aggregation;
+      rc = handler_->aggregate_record(current_trx,current_db,aggregates.relation_name,aggregates.field,aggregates.field_num,aggregates.conditions,aggregates.condition_num);
+  }
   case SCF_DELETE: {
       const Deletes &deletes = sql->sstr.deletion;
       const char *table_name = deletes.relation_name;

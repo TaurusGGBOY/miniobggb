@@ -59,6 +59,7 @@ public:
   
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, ConditionFilter *filter, int *updated_count);
+  RC aggregate_record(Trx *trx, const AggregatesField* agg_field,int agg_field_num,ConditionFilter *filter);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
 
   RC scan_record(Trx *trx, ConditionFilter *filter, int limit, void *context, void (*record_reader)(const char *data, void *context));

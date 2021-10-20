@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include<regex>
 
 RC parse(char *st, Query *sqln);
 
@@ -105,6 +106,7 @@ void attr_info_destroy(AttrInfo *attr_info) {
   attr_info->name = nullptr;
 }
 
+//unused
 void selects_init(Selects *selects, ...);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr) {
   selects->attributes[selects->attr_num++] = *rel_attr;
@@ -203,6 +205,57 @@ void updates_destroy(Updates *updates) {
     condition_destroy(&updates->conditions[i]);
   }
   updates->condition_num = 0;
+}
+
+void aggregates_init(Aggregates *aggregates,const char *relation_name, 
+                      Condition conditions[], size_t condition_num)
+{
+  //CONTEXT的空间在yacc中分配，此函数需分配aggregate中的指针
+  aggregates->relation_name = strdup(relation_name);
+  assert(condition_num <= sizeof(aggregates->conditions)/sizeof(aggregates->conditions[0]));
+  for (size_t i = 0; i < condition_num; i++) {
+    aggregates->conditions[i] = conditions[i];
+  }
+  aggregates->condition_num = condition_num;
+}
+void aggregates_destroy(Aggregates *aggregates){
+  free(aggregates->relation_name);
+  aggregates->relation_name = nullptr;
+  for (size_t i = 0; i < aggregates->condition_num; i++) {
+    condition_destroy(&aggregates->conditions[i]);
+  }
+  aggregates->condition_num = 0;
+  //对aggfield中指针的销毁
+  for (size_t i=0;i!=aggregates->field_num;i++){
+    free(aggregates->field[aggregates->field_num].attribute_name);
+  }
+  aggregates->field_num = 0;
+}
+void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,
+                           const char* type_name)
+{
+  aggregates->field[aggregates->field_num].attribute_name = strdup(attribute_name);
+  std::string typestr(type_name,strlen(type_name));
+  if(std::regex_match(typestr,std::regex("[Mm][Aa][Xx]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_MAX;
+    LOG_INFO("append aggregation type MAX");
+  }
+  else if(std::regex_match(typestr,std::regex("[Mm][Ii][Nn]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_MIN;
+    LOG_INFO("append aggregation type MIN");
+  }
+  else if(std::regex_match(typestr,std::regex("[Ss][Uu][Mm]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_SUM;
+    LOG_INFO("append aggregation type SUM");
+  }else if(std::regex_match(typestr,std::regex("[Aa][Vv][Gg]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_AVG;
+    LOG_INFO("append aggregation type COUNT");
+  }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_AVG;
+    LOG_INFO("append aggregation type AVG");
+  }else{
+    LOG_ERROR("failed to parse aggregation type of %s(%s)!",typestr.c_str(),attribute_name);
+  }
 }
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info) {
@@ -314,6 +367,10 @@ void query_reset(Query *query) {
     break;
     case SCF_UPDATE: {
       updates_destroy(&query->sstr.update);
+    }
+    break;
+    case SCF_AGGREGATE:{
+      aggregates_destroy(&query->sstr.aggregation);
     }
     break;
     case SCF_CREATE_TABLE: {

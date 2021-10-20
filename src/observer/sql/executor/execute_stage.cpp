@@ -127,7 +127,7 @@ void ExecuteStage::handle_request(common::StageEvent *event) {
       exe_event->done_immediate();
     }
     break;
-
+    case SCF_AGGREGATE:
     case SCF_INSERT:
     case SCF_UPDATE:
     case SCF_DELETE:
@@ -178,13 +178,16 @@ void ExecuteStage::handle_request(common::StageEvent *event) {
     break;
     case SCF_HELP: {
       const char *response = "show tables;\n"
+          "drop tables `table name`\n"
           "desc `table name`;\n"
           "create table `table name` (`column name` `column type`, ...);\n"
           "create index `index name` on `table` (`column`);\n"
           "insert into `table` values(`value1`,`value2`);\n"
           "update `table` set column=value [where `column`=`value`];\n"
           "delete from `table` [where `column`=`value`];\n"
-          "select [ * | `columns` ] from `table`;\n";
+          "select [ * | `columns` ] from `table`;\n"
+          "select max(`column`) from `table`;\n"
+          ;
       session_event->set_response(response);
       exe_event->done_immediate();
     }

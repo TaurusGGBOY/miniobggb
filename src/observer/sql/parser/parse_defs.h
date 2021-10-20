@@ -132,6 +132,30 @@ typedef struct {
   const char *file_name;
 } LoadData;
 
+
+enum AggregationTypeFlag{
+  //语法解析生成的token也被定义为标识符，需避免重名
+  ATF_SUM,
+  ATF_AVG,
+  ATF_MAX,
+  ATF_MIN,
+  ATF_COUNT
+};
+
+typedef struct{
+  //聚合的字段以及字段上的聚合类型
+  char* attribute_name;
+  enum AggregationTypeFlag aggregation_type;
+}AggregatesField;
+
+typedef struct{
+  AggregatesField field[MAX_NUM];
+  int field_num;
+  char* relation_name;
+  size_t condition_num;
+  Condition conditions[MAX_NUM];
+}Aggregates;
+
 union Queries {
   Selects selection;
   Inserts insertion;
@@ -143,6 +167,7 @@ union Queries {
   DropIndex drop_index;
   DescTable desc_table;
   LoadData load_data;
+  Aggregates aggregation;
   char *errors;
 };
 
@@ -165,7 +190,8 @@ enum SqlCommandFlag {
   SCF_ROLLBACK,
   SCF_LOAD_DATA,
   SCF_HELP,
-  SCF_EXIT
+  SCF_EXIT,
+  SCF_AGGREGATE
 };
 // struct of flag and sql_struct
 typedef struct Query {
@@ -209,6 +235,10 @@ void deletes_destroy(Deletes *deletes);
 void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, Value *value,
     Condition conditions[], size_t condition_num);
 void updates_destroy(Updates *updates);
+
+void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition conditions[], size_t condition_num);
+void aggregates_destroy(Aggregates *aggregates);
+void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);
 void create_table_init_name(CreateTable *create_table, const char *relation_name);

@@ -550,8 +550,15 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
 class RecordUpdater{
   //仅支持单字段更新
   public:
-  RecordUpdater(Table& tab,Trx* trx,const char* attr_name, const Value* value):table_(tab),trx_(trx),value_(value){
-    field_ = tab.table_meta_.field(attr_name);
+  RecordUpdater(Table& tab,Trx* trx, const Value* value):table_(tab),trx_(trx),value_(value){
+    
+  }
+
+  RC set_field(const char* attr_name){
+    field_ = table_.table_meta_.field(attr_name);
+    if(field_ ==nullptr)
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    return RC::SUCCESS;
   }
 
   RC update_record(Record* rec){
@@ -594,8 +601,12 @@ static RC record_reader_update_adapter(Record* record,void* context){
 }
 
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, ConditionFilter *filter, int *update_count) {
-  RecordUpdater updater(*this,trx,attribute_name,value);
-  RC rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
+  RecordUpdater updater(*this,trx,value);
+  RC rc = updater.set_field(attribute_name);
+  if(rc!=RC::SUCCESS){
+    return rc;
+  }
+  rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
   if(update_count!=nullptr){
     *update_count = updater.update_count();
   }
@@ -607,6 +618,12 @@ RC Table::update_record(Trx* trx, Record* rec){
   //未支持事务
   return this->record_handler_->update_record(rec);
 }
+
+RC Table::aggregate_record(Trx *trx, const AggregatesField* agg_field,
+    int agg_field_num,ConditionFilter *filter){
+      return RC::GENERIC_ERROR;
+      }
+
 
 class RecordDeleter {
 public:
