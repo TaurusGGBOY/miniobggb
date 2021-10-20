@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/tuple.h"
 #include "storage/common/table.h"
 #include "common/log/log.h"
+#include "storage/common/date.h"
 
 Tuple::Tuple(const Tuple &other) {
   LOG_PANIC("Copy constructor of tuple is not supported");
@@ -229,7 +230,26 @@ void TupleRecordConverter::add_record(const char *record) {
         tuple.add(value);
       }
         break;
-      case DATES:
+      case DATES:{
+        int value = *(int*)(record + field_meta->offset());
+        // TODO should delete?
+
+        // Date &date = Date::get_instance();
+        // char *date1 = "2012-12-12";
+        // char *date2 = "2000-12-12";
+        // int date_int1 = date.date_to_int(date1);
+        // printf("%d\n",date_int1);
+        // char buf[40];
+        // date.int_to_date(date_int1, buf);
+        printf("input int %d\n", value);
+
+        char buf[40];
+        Date &date = Date::get_instance();
+        date.int_to_date(value, buf);
+        printf("output date %s\n", buf);
+        tuple.add(buf, strlen(buf));
+      }
+        break;
       case CHARS: {
         const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
         tuple.add(s, strlen(s));

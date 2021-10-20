@@ -570,8 +570,11 @@ static const char *const yytname[] =
   "create_index", "drop_index", "create_table", "attr_def_list",
   "attr_def", "number", "type", "ID_get", "insert", "value_list", "value",
   "delete", "update", "select", "agg_field", "agg_field_list",
-  "select_attr", "attr_list", "rel_list", "where", "condition_list",
-  "condition", "comOp", "load_data", YY_NULLPTR
+  "FLOAT", "ID", "PATH", "SSS", "STAR", "STRING_V", "$accept", "commands",
+  "command", "exit", "help", "sync", "begin", "commit", "rollback",
+  "drop_table", "show_tables", "desc_table", "create_index", "drop_index",
+  "create_table", "attr_def_list", "attr_def", "number", "type", "ID_get",
+  "insert", "value_list", "value", "delete", "update", "select",
 };
 #endif
 
@@ -590,7 +593,6 @@ static const yytype_uint16 yytoknum[] =
 # endif
 
 #define YYPACT_NINF -103
-
 #define yypact_value_is_default(Yystate) \
   (!!((Yystate) == (-103)))
 
@@ -1571,8 +1573,7 @@ yyreduce:
 #line 256 "yacc_sql.y" /* yacc.c:1646  */
     {
 			AttrInfo attribute;
-			// TODO temp default 10 bytes
-			attr_info_init(&attribute, CONTEXT->id, (yyvsp[0].number), 10);
+			attr_info_init(&attribute, CONTEXT->id, (yyvsp[0].number), 4);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name=(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 

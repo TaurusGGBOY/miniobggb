@@ -122,7 +122,6 @@ ParserContext *get_context(yyscan_t scanner)
 %token <string> SSS
 %token <string> STAR
 %token <string> STRING_V
-%token <string> DATE
 //非终结符
 
 %type <number> type;
@@ -255,8 +254,7 @@ attr_def:
     |ID_get type
 		{
 			AttrInfo attribute;
-			// TODO temp default 10 bytes
-			attr_info_init(&attribute, CONTEXT->id, $2, 10);
+			attr_info_init(&attribute, CONTEXT->id, $2, 4);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name=(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
@@ -312,11 +310,6 @@ value:
 		}
     |FLOAT{
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
-		}
-	// TODO there is bug if string column input date format data
-	|DATE {
-		$1 = substr($1,1,strlen($1)-2);
-  		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     |SSS {
 		$1 = substr($1,1,strlen($1)-2);

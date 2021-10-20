@@ -258,6 +258,7 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
 RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_event) {
 
+  LOG_DEBUG("llds start do select");
   RC rc = RC::SUCCESS;
   Session *session = session_event->get_client()->session;
   Trx *trx = session->current_trx();
@@ -273,6 +274,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       for (SelectExeNode *& tmp_node: select_nodes) {
         delete tmp_node;
       }
+      session_event->set_response("FAILURE\n");
       end_trx_if_need(session, trx, false);
       return rc;
     }
