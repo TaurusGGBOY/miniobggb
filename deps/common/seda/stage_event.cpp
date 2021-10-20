@@ -65,7 +65,8 @@ void StageEvent::done() {
 }
 
 // Processing for this event is done; callbacks executed immediately
-void StageEvent::done_immediate() {
+void StageEvent::
+done_immediate() {
   CompletionCallback *top;
 
   if (comp_cb_) {

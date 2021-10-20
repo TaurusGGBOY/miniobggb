@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "record_manager.h"
 #include "common/log/log.h"
 #include "storage/common/table.h"
+#include "storage/common/date.h"
 
 using namespace common;
 
@@ -49,7 +50,6 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
     LOG_ERROR("Invalid condition with unsupported compare operation: %d", comp_op);
     return RC::INVALID_ARGUMENT;
   }
-
   left_ = left;
   right_ = right;
   attr_type_ = attr_type;
@@ -114,10 +114,22 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   //    // 不能比较的两个字段， 要把信息传给客户端
   //    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   //  }
-  // NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
+  // TODO NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
   // 但是选手们还是要实现。这个功能在预选赛中会出现
   if (type_left != type_right) {
-    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    if(type_left == DATES && type_right ==CHARS){
+      Date &date = Date::get_instance();
+      right.value = new int(date.date_to_int((const char*)condition.right_value.data));
+      // TODO memory leakage
+      type_right = DATES;
+    }else if(type_left==CHARS && type_right==DATES){
+      Date &date = Date::get_instance();
+      left.value = new int(date.date_to_int((const char*)condition.left_value.data));
+      // TODO memory leakage
+      type_left = DATES;
+    }else{
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
   }
 
   return init(left, right, type_left, condition.comp);
@@ -127,6 +139,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
 {
   char *left_value = nullptr;
   char *right_value = nullptr;
+
 
   if (left_.is_attr) {  // value
     left_value = (char *)(rec.data + left_.attr_offset);
@@ -146,6 +159,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
       // 按照C字符串风格来定
       cmp_result = strcmp(left_value, right_value);
     } break;
+    case DATES:
     case INTS: {
       // 没有考虑大小端问题
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
