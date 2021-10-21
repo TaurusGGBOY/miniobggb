@@ -307,6 +307,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 本次查询了多张表，需要做join操作
     LOG_DEBUG("print multi table tuple set");
 
+    std::reverse(tuple_sets.begin(),tuple_sets.end());
     TupleSchema schema;
     for(auto& tuple_set:tuple_sets){
         schema.append(tuple_set.get_schema());
