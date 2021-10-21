@@ -227,7 +227,10 @@ void TupleRecordConverter::add_record(const char *record) {
       break;
       case FLOATS: {
         float value = *(float *)(record + field_meta->offset());
-        tuple.add(value);
+        // TODO memory leakage
+        char buf[60];
+        trim(value, buf);
+        tuple.add(buf,strlen(buf));
       }
         break;
       case DATES:{
@@ -253,4 +256,20 @@ void TupleRecordConverter::add_record(const char *record) {
   tuple_set_.add(std::move(tuple));
 }
 
-
+void TupleRecordConverter::trim(float f, char* buf){
+  sprintf(buf, "%.2f", f);
+  int len = strlen(buf);
+  if(buf[len-1]=='0'){
+      buf[len-1]='\0';
+  }else{
+    return;
+  }
+  if(buf[len-2]=='0'){
+      buf[len-2]='\0';
+  }else{
+    return;
+  }
+  if(buf[len-3]=='.'){
+      buf[len-3]='\0';
+  }
+}
