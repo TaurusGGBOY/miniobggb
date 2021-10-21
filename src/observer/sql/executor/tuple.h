@@ -152,6 +152,7 @@ public:
   TupleRecordConverter(Table *table, TupleSet &tuple_set);
 
   void add_record(const char *record);
+  void trim(float f, char* buf);
 private:
   Table *table_;
   TupleSet &tuple_set_;
