@@ -32,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/default/default_handler.h"
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
+#include <algorithm>
 
 using namespace common;
 
