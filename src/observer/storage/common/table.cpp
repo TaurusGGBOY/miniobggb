@@ -648,83 +648,8 @@ RC Table::update_record(Trx* trx, Record* rec){
   return this->record_handler_->update_record(rec);
 }
 
-class RecordAggregater {
-  //聚合的adapter
-  //CHAR和DATE只支持COUNT
-  public:
-  RecordAggregater(Trx* trx, Table& tab) : trx_(trx),table_(tab){
-  }
-  ~ RecordAggregater(){
-    //释放value，先判断类型避免delete void
-    for(int i=0;i!=value_.size();i++){
-      if(field_[i].second == ATF_COUNT){
-        delete (int*)value_[i];
-      }
-      else{
-        switch (field_[i].second)
-        {
-        case INTS:
-          delete (int*)value_[i];
-          break;
-        case FLOATS:
-          delete (float*)value_[i];
-          break;
-        default:
-          break;
-        }
-      }
-    }
-  }
-  RC set_field(const AggregatesField* agg_field,int agg_field_num){
-    for(int i=0;i!=agg_field_num;i++){
-      const FieldMeta* fm = table_.table_meta_.field(agg_field->attribute_name);
-      if(fm==nullptr)
-        return RC::SCHEMA_FIELD_NOT_EXIST;
-      field_.push_back({fm,agg_field->aggregation_type});
 
-      if(agg_field->aggregation_type==ATF_COUNT){
-        int* tmp = new int;
-        value_.push_back(tmp);
-      }
-      else{
-        switch(fm->type()){
-          //对不支持的类型插入一个空指针
-          case FLOATS:{
-            float* tmp = new float;
-            value_.push_back(tmp);
-          }
-          break;
-          case INTS:{
-            int* tmp = new int;
-            value_.push_back(tmp);
-          }
-          break;
-          default:
-            value_.push_back(nullptr);
-          break;
-        }  
-      }
-    }
-  }
 
-  RC update_record(Record* rec){
-    for(int i=0;i!=field_.size();i++){
-      
-    }
-  }
-  private:
-  Trx* trx_;
-  Table& table_;
-
-  std::vector<std::pair<const FieldMeta*,AggregationTypeFlag>> field_;
-  std::vector<void*> value_;
-  //存储结果vector
-};
-
-RC Table::aggregate_record(Trx *trx, const AggregatesField* agg_field,
-    int agg_field_num,ConditionFilter *filter){
-      return RC::GENERIC_ERROR;
-      }
 
 
 class RecordDeleter {

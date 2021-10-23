@@ -260,13 +260,14 @@ void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,
     LOG_INFO("append aggregation type SUM");
   }else if(std::regex_match(typestr,std::regex("[Aa][Vv][Gg]"))){
     aggregates->field[aggregates->field_num].aggregation_type = ATF_AVG;
-    LOG_INFO("append aggregation type COUNT");
-  }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_AVG;
     LOG_INFO("append aggregation type AVG");
+  }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
+    aggregates->field[aggregates->field_num].aggregation_type = ATF_COUNT;
+    LOG_INFO("append aggregation type COUNT");
   }else{
     LOG_ERROR("failed to parse aggregation type of %s(%s)!",typestr.c_str(),attribute_name);
   }
+  aggregates->field_num++;
 }
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info) {

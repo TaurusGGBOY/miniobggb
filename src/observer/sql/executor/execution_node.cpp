@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/execution_node.h"
 #include "storage/common/table.h"
 #include "common/log/log.h"
+#include "storage/common/record_manager.h"
 
 SelectExeNode::SelectExeNode() : table_(nullptr) {
 }

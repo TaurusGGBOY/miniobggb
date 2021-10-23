@@ -20,6 +20,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/parse.h"
 #include "sql/executor/value.h"
+#include "storage/common/table_meta.h"
+#include "storage/common/record_manager.h"
 
 class Table;
 
@@ -156,5 +158,32 @@ private:
   Table *table_;
   TupleSet &tuple_set_;
 };
+
+class RecordAggregater {
+  //聚合的adapter
+  //CHAR和DATE只支持COUNT
+  public:
+  RecordAggregater(Table& tab);
+  ~RecordAggregater();
+  RC set_field(const AggregatesField* agg_field,int agg_field_num);
+  RC update_record(Record* rec);
+  void agg_done();
+  TupleSet* get_tupleset();
+
+
+
+  private:
+  Table& table_;
+  
+  int rec_count=0;
+  TupleSet tupleset;
+  std::vector<std::pair<const FieldMeta*,AggregationTypeFlag>> field_;
+  //存储结果vector
+  std::vector<void*> value_;
+  //生成输出的表头格式
+  std::string schema_field_name(const char *attr_name,enum AggregationTypeFlag flag);
+};
+
+
 
 #endif //__OBSERVER_SQL_EXECUTOR_TUPLE_H_
