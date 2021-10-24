@@ -5,3 +5,6 @@ deps/jsoncpp
 deps/libevent
 observer.log.*
 miniob/db/sys
+src/observer/sql/parser/yacc_sql.tab.h
+src/observer/sql/parser/yacc_sql.tab.c
+src/observer/sql/parser/lex.yy.c

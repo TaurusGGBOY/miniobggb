@@ -68,7 +68,6 @@ public:
       }
     }
     std::string s = buf;
-    std::cout << s << std::endl;
     os << s;
   }
 
