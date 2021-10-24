@@ -218,22 +218,18 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
 }
 
 //lds:打印多表数据
-void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, std::vector<std::pair<int,int>>& print_order ,bool finished=false) {
+void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, std::vector<std::pair<int,int>>& print_order ,TupleSet& res ,bool finished=false) {
   if(finished) {
     return;
   }
   if(index==tuple_sets.size()){
+    Tuple curr;
     for(int i=0;i<print_order.size();++i) {
       int j = print_order[i].first;
       int k = print_order[i].second;
-      const TupleValue& value=tuples[j]->get(k);
-      value.to_string(os);
-      if(i==print_order.size()-1) {
-        os << std::endl;
-      } else {
-        os << " | ";
-      }
+      curr.add(tuples[j]->values()[k]);
     }
+    res.add(std::move(curr));
     finished=true;
     return ;
   }
@@ -247,7 +243,7 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
 
   for(auto& t:ts) {
     tuples.push_back(&t);
-    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,finished);
+    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,res,finished);
     tuples.pop_back();
   }
 }
@@ -294,7 +290,75 @@ std::vector<std::pair<int,int>> get_print_order(const Selects &selects, std::vec
   }
   return print_order;
 }
-
+bool order_tuples(const Selects &selects, TupleSet& tuple_set, int size) {
+  //check and get order fields
+  if(selects.order_attr_num==0) {
+    return true;
+  }
+  std::set<int> count;//防止order字段重复
+  std::vector<std::pair<int,bool>> order_fields;
+  //重复代码比较多
+  //遍历所有的可排序字段，找到tuple.sets中的对应字段
+  if(size > 1) {
+    //遍历排序字段，逆序遍历
+    auto& schema = tuple_set.get_schema().fields();
+    for(int i=selects.order_attr_num-1; i>=0; --i) {
+      auto attr = selects.order_attr[i];
+      //多表情况排序字段表名不能为空
+      if(attr.relation_name == nullptr) {
+        return false;
+      }
+      //遍历所有的表
+      for(int j=0;j<schema.size();++j) {
+        if(strcmp(schema[j].field_name(),attr.attribute_name) != 0 || strcmp(schema[j].table_name(),attr.relation_name) != 0) {
+          continue;
+        }
+        bool is_asc = false;
+        if(strcasecmp("asc",attr.is_asc) == 0) {
+          is_asc = true;
+        } else if( (strcasecmp("desc",attr.is_asc) == 0) ) {
+          is_asc =false;
+        } else {
+          return false;
+        }
+        count.insert(j);
+        order_fields.push_back({j,is_asc});
+      }
+    }
+  } else {
+    auto& schema = tuple_set.get_schema().fields();
+    for(int i=selects.order_attr_num-1; i>=0; --i) {
+      auto attr = selects.order_attr[i];
+      //只有单表情况下，order by可以不带表名
+      if(attr.relation_name!= nullptr && strcmp(attr.relation_name, schema.front().table_name()) != 0) {
+        return false;
+      }
+      //记录每个表需要排序的字段编号及升/降序
+      for(int j=0;j<schema.size();++j) {
+        if(strcmp(schema[j].field_name(),attr.attribute_name) != 0) {
+          continue;
+        }
+        bool is_asc = false;
+        if(strcasecmp("asc",attr.is_asc) == 0) {
+          is_asc = true;
+        } else if( (strcasecmp("desc",attr.is_asc) == 0) ) {
+          is_asc =false;
+        } else {
+          return false;
+        }
+        count.insert(j);
+        order_fields.push_back({j,is_asc});
+      }
+    }
+  }
+  //m说明少于排序字段数量，数名有排序字段不在查询字段内，报failure
+  if(count.size() < selects.order_attr_num) {
+    return false;
+  }
+  //开始排序
+  tuple_set.sort(Comparator(order_fields));
+  return true;
+}
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
 RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_event) {
@@ -355,12 +419,25 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       ss << "FAILURE\n";
     } else {
       std::vector<const Tuple*> tuples;
-      schema.print(ss);
-      print_tuple_sets(tuple_sets,0,tuples,ss,print_order);
+      //schema.print(ss);
+      TupleSet res;
+      res.set_schema(schema);
+      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,res);
+      if(order_tuples(selects,res,tuple_sets.size())) {
+        res.print(ss);
+      } else {
+        ss.clear();
+        ss << "FAILURE\n";
+      }
     }
   } else {
     // 当前只查询一张表，直接返回结果即可
-    tuple_sets.front().print(ss);
+    if(order_tuples(selects,tuple_sets.front(),1)) {
+      tuple_sets.front().print(ss);
+    } else {
+      ss.clear();
+      ss << "FAILURE\n";
+    }
   }
 
   for (SelectExeNode *& tmp_node: select_nodes) {

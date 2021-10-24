@@ -77,6 +77,8 @@ QUOTE            [\'\"]
 [Aa][Vv][Gg]						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
 [Cc][Oo][Uu][Nn][Tt]				yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
 [Ss][Uu][Mm]						yylval->string=strdup(yytext);	RETURN_TOKEN(AGGREGATE);
+[Aa][Ss][Cc]                        RETURN_TOKEN(ASC);
+[Oo][Rr][Dd][Ee][Rr][[:space:]][Bb][Yy]      RETURN_TOKEN(ORDER_BY);
 {ID}							                       yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("								                       RETURN_TOKEN(LBRACE);
 ")"								                       RETURN_TOKEN(RBRACE);
