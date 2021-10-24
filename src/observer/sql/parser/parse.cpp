@@ -24,6 +24,32 @@ RC parse(char *st, Query *sqln);
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+void order_attr_init(OrderAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* is_asc) {
+  if (relation_name != nullptr) {
+    relation_attr->relation_name = strdup(relation_name);
+  } else {
+    relation_attr->relation_name = nullptr;
+  }
+  relation_attr->attribute_name = strdup(attribute_name);
+  if(is_asc != nullptr) {
+
+    relation_attr->is_asc = strdup(is_asc);
+  } else {
+    auto buf="asc";
+    relation_attr->is_asc = strdup(buf);
+  }
+}
+
+void order_attr_destroy(OrderAttr *relation_attr) {
+  free(relation_attr->relation_name);
+  free(relation_attr->attribute_name);
+  free(relation_attr->is_asc);
+  relation_attr->relation_name = nullptr;
+  relation_attr->attribute_name = nullptr;
+  relation_attr->is_asc = nullptr;
+}
+
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name) {
   if (relation_name != nullptr) {
     relation_attr->relation_name = strdup(relation_name);
@@ -116,6 +142,9 @@ void attr_info_destroy(AttrInfo *attr_info) {
 
 //unused
 void selects_init(Selects *selects, ...);
+void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr) {
+  selects->order_attr[selects->order_attr_num++] = *rel_attr;
+}
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr) {
   selects->attributes[selects->attr_num++] = *rel_attr;
 }
@@ -147,6 +176,10 @@ void selects_destroy(Selects *selects) {
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+  for(size_t i = 0; i < selects->order_attr_num; i++) {
+    order_attr_destroy(&selects->order_attr[i]);
+  }
+  selects->order_attr_num=0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num) {
@@ -430,6 +463,7 @@ void query_destroy(Query *query) {
   query_reset(query);
   free(query);
 }
+
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus

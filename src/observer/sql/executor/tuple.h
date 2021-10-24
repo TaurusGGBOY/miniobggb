@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 #include "sql/parser/parse.h"
 #include "sql/executor/value.h"
@@ -115,6 +116,36 @@ private:
   std::vector<TupleField> fields_;
 };
 
+struct Comparator {
+  Comparator(std::vector<std::pair<int,bool>>& list):compar_list(list) {
+  }
+  bool operator()(Tuple& t1, Tuple&t2) {
+    for(int i=0;i<compar_list.size();++i) {
+      int index=compar_list[i].first;
+      bool is_asc=compar_list[i].second;
+      if(t1.get(index).compare(t2.get(index))==0) {
+        continue;
+      }
+      else if(t1.get(index).compare(t2.get(index)) < 0) {
+        if(is_asc) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+      else {
+        if(is_asc) {
+          return false;
+        } else {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  std::vector<std::pair<int,bool>>& compar_list;
+};
+
 class TupleSet {
 public:
   TupleSet() = default;
@@ -142,6 +173,9 @@ public:
 public:
   const TupleSchema &schema() const {
     return schema_;
+  }
+  void sort(Comparator cmp) {
+    std::sort(tuples_.begin(),tuples_.end(),cmp);
   }
 private:
   std::vector<Tuple> tuples_;
