@@ -127,6 +127,7 @@ public:
   ~TupleSet() = default;
 
   void set_schema(const TupleSchema &schema);
+  void set_schema(const TupleSchema &&schema);
 
   const TupleSchema &get_schema() const;
 

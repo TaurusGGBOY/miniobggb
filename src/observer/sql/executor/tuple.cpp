@@ -190,6 +190,10 @@ void TupleSet::set_schema(const TupleSchema &schema) {
   schema_ = schema;
 }
 
+void TupleSet::set_schema(const TupleSchema &&schema) {
+  schema_ = schema;
+}
+
 const TupleSchema &TupleSet::get_schema() const {
   return schema_;
 }
