@@ -218,20 +218,17 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
 }
 
 //lds:打印多表数据
-void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, bool finished=false) {
+void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, std::vector<std::pair<int,int>>& print_order ,bool finished=false) {
   if(finished) {
     return;
   }
   if(index==tuple_sets.size()){
-    for(int i=0;i<tuples.size();++i) {
-      const std::vector<std::shared_ptr<TupleValue>> &values = tuples[i]->values();
-      for (std::vector<std::shared_ptr<TupleValue>>::const_iterator iter = values.begin(), end = --values.end();
-           iter != end; ++iter) {
-        (*iter)->to_string(os);
-        os << " | ";
-      }
-      values.back()->to_string(os);
-      if(i==tuples.size()-1){
+    for(int i=0;i<print_order.size();++i) {
+      int j = print_order[i].first;
+      int k = print_order[i].second;
+      const TupleValue& value=tuples[j]->get(k);
+      value.to_string(os);
+      if(i==print_order.size()-1) {
         os << std::endl;
       } else {
         os << " | ";
@@ -250,9 +247,52 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
 
   for(auto& t:ts) {
     tuples.push_back(&t);
-    print_tuple_sets(tuple_sets,index+1,tuples,os,finished);
+    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,finished);
     tuples.pop_back();
   }
+}
+
+std::vector<std::pair<int,int>> get_print_order(const Selects &selects, std::vector<TupleSet>& tuple_sets, TupleSchema& schema) {
+  std::vector<std::pair<int,int>> print_order;
+  //只有一个查询字段才可能出现全局星号
+  LOG_DEBUG("llds selects attr num is %d", selects.attr_num);
+  if(selects.attr_num == 1) {
+    //如果只有一个字段，该查询字段如果未设定表，则必须是*，不然就是非法查询
+    LOG_DEBUG("llds selects relation_name is %s.%s", selects.attributes[0].relation_name,selects.attributes[0].attribute_name);
+    if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") == 0 ) {
+      for (int j=tuple_sets.size()-1; j>=0; --j) {
+        for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k) {
+          print_order.push_back({j,k});
+          schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+        }
+      }
+    }
+    LOG_DEBUG("llds print_order size is %d",print_order.size());
+    return print_order;
+  }
+
+  for(int i=selects.attr_num-1;i>=0;--i) {
+    for(int j=0;j<tuple_sets.size();++j){
+      for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
+        //不能再出现全局*，所以不会出现无表名的情况
+        if(selects.attributes[i].relation_name == nullptr) {
+          print_order.clear();
+          return print_order;
+        }
+        //如果表名不同，继续找
+        if(strcmp(selects.attributes[i].relation_name,tuple_sets[j].get_schema().field(k).table_name()) != 0 ) {
+          continue;
+        }
+        //如果字段名不为*或者字段名不相等，继续找
+        if((strcmp("*", selects.attributes[i].attribute_name) != 0) && (strcmp(selects.attributes[i].attribute_name,tuple_sets[j].get_schema().field(k).field_name()) != 0)) {
+          continue;
+        }
+        print_order.push_back({j,k});
+        schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+      }
+    }
+  }
+  return print_order;
 }
 
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
@@ -308,15 +348,16 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     // 本次查询了多张表，需要做join操作
     LOG_DEBUG("print multi table tuple set");
 
-    std::reverse(tuple_sets.begin(),tuple_sets.end());
     TupleSchema schema;
-    for(auto& tuple_set:tuple_sets){
-        schema.append(tuple_set.get_schema());
+    auto print_order=get_print_order(selects,tuple_sets,schema);
+    if(print_order.empty()) {
+      ss.clear();
+      ss << "FAILURE\n";
+    } else {
+      std::vector<const Tuple*> tuples;
+      schema.print(ss);
+      print_tuple_sets(tuple_sets,0,tuples,ss,print_order);
     }
-    schema.print(ss);
-    std::vector<const Tuple*> tuples;
-
-    print_tuple_sets(tuple_sets,0,tuples,ss);
   } else {
     // 当前只查询一张表，直接返回结果即可
     tuple_sets.front().print(ss);
