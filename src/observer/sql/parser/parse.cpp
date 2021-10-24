@@ -36,8 +36,8 @@ void order_attr_init(OrderAttr *relation_attr, const char *relation_name, const 
 
     relation_attr->is_asc = strdup(is_asc);
   } else {
-    char* buf=new char[10]{"asc"};
-    relation_attr->is_asc = buf;
+    auto buf="asc";
+    relation_attr->is_asc = strdup(buf);
   }
 }
 
@@ -176,6 +176,10 @@ void selects_destroy(Selects *selects) {
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+  for(size_t i = 0; i < selects->order_attr_num; i++) {
+    order_attr_destroy(&selects->order_attr[i]);
+  }
+  selects->order_attr_num=0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num) {
