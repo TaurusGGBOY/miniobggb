@@ -39,6 +39,7 @@ public:
   void add(int value);
   void add(float value);
   void add(const char *s, int len);
+  void add_date(int value);
 
   const std::vector<std::shared_ptr<TupleValue>> &values() const {
     return values_;
@@ -152,7 +153,6 @@ public:
   TupleRecordConverter(Table *table, TupleSet &tuple_set);
 
   void add_record(const char *record);
-  void trim(float f, char* buf);
 private:
   Table *table_;
   TupleSet &tuple_set_;

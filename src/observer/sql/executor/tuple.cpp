@@ -57,6 +57,10 @@ void Tuple::add(const char *s, int len) {
   add(new StringValue(s, len));
 }
 
+void Tuple::add_date(int value) {
+  add(new DateValue(value));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string TupleField::to_string() const {
@@ -227,19 +231,12 @@ void TupleRecordConverter::add_record(const char *record) {
       break;
       case FLOATS: {
         float value = *(float *)(record + field_meta->offset());
-        // TODO memory leakage
-        char buf[60];
-        trim(value, buf);
-        tuple.add(buf,strlen(buf));
+        tuple.add(value);
       }
         break;
       case DATES:{
         int value = *(int*)(record + field_meta->offset());
-        // TODO should delete?
-        char buf[40];
-        Date &date = Date::get_instance();
-        date.int_to_date(value, buf);
-        tuple.add(buf, strlen(buf));
+        tuple.add_date(value);
       }
         break;
       case CHARS: {
@@ -256,20 +253,3 @@ void TupleRecordConverter::add_record(const char *record) {
   tuple_set_.add(std::move(tuple));
 }
 
-void TupleRecordConverter::trim(float f, char* buf){
-  sprintf(buf, "%.2f", f);
-  int len = strlen(buf);
-  if(buf[len-1]=='0'){
-      buf[len-1]='\0';
-  }else{
-    return;
-  }
-  if(buf[len-2]=='0'){
-      buf[len-2]='\0';
-  }else{
-    return;
-  }
-  if(buf[len-3]=='.'){
-      buf[len-3]='\0';
-  }
-}
