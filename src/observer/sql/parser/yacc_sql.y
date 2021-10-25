@@ -103,6 +103,8 @@ ParserContext *get_context(yyscan_t scanner)
         GE
         NE
 		DATE_T
+		ORDER_BY
+		ASC
 
 %union {
   struct _Attr *attr;
@@ -352,7 +354,7 @@ select:				/*  select 语句的语法解析树*/
 		aggregates_init(&CONTEXT->ssql->sstr.aggregation,$4,CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->condition_length = 0;
 	}
-    | SELECT select_attr FROM ID rel_list where SEMICOLON
+    | SELECT select_attr FROM ID rel_list where order SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
@@ -392,6 +394,76 @@ agg_field_list:
 		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,$4,$2);
 	}
 	;
+order:
+    | ORDER_BY order_attr {
+    }
+    ;
+order_attr:
+    ID order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $1, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    |  ID DOT ID order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $1, $3, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    |  ID ASC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $1, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    |   ID DESC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $1, "desc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    |  ID DOT ID ASC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $1, $3, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    |  ID DOT ID DESC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $1, $3, "desc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+        ;
+
+order_attr_list:
+    | COMMA ID order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $2, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    | COMMA ID DOT ID order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $2, $4, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    | COMMA ID ASC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $2, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    | COMMA ID DESC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, NULL, $2, "desc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    | COMMA ID DOT ID ASC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $2, $4, "asc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+    | COMMA ID DOT ID DESC order_attr_list {
+            OrderAttr attr;
+            order_attr_init(&attr, $2, $4, "desc");
+            selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
+        }
+        ;
+
 select_attr:
     STAR {  
 			RelAttr attr;
@@ -408,6 +480,11 @@ select_attr:
 			relation_attr_init(&attr, $1, $3);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
+	| ID DOT STAR attr_list {
+	        RelAttr attr;
+	        relation_attr_init(&attr, $1, "*");
+	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	    }
     ;
 attr_list:
     /* empty */
@@ -425,6 +502,11 @@ attr_list:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
+  	| COMMA ID DOT STAR attr_list {
+  	        RelAttr attr;
+  	        relation_attr_init(&attr, $2, "*");
+  	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+  	}
   	;
 
 rel_list:

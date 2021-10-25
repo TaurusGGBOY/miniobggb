@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include <ostream>
+#include <storage/common/date.h>
 
 class TupleValue {
 public:
@@ -54,7 +55,20 @@ public:
   }
 
   void to_string(std::ostream &os) const override {
-    os << value_;
+    char buf[60];
+    sprintf(buf, "%.2f", value_);
+    int len = strlen(buf);
+    if(buf[len-1]=='0'){
+      buf[len-1]='\0';
+      if(buf[len-2]=='0'){
+        buf[len-2]='\0';
+        if(buf[len-3]=='.'){
+        buf[len-3]='\0';
+        }
+      }
+    }
+    std::string s = buf;
+    os << s;
   }
 
   int compare(const TupleValue &other) const override {
@@ -89,6 +103,28 @@ public:
   }
 private:
   std::string value_;
+};
+
+class DateValue : public TupleValue {
+public:
+  explicit DateValue(int value) : value_(value) {
+  }
+
+  void to_string(std::ostream &os) const override {
+    Date& date = Date::get_instance();
+    char buf[40];
+    date.int_to_date(value_,buf);
+    std::string s = buf;
+    os << s;
+  }
+
+  int compare(const TupleValue &other) const override {
+    const DateValue & int_other = (const DateValue &)other;
+    return value_ - int_other.value_;
+  }
+
+private:
+  int value_;
 };
 
 
