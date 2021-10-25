@@ -128,7 +128,11 @@ void ExecuteStage::handle_request(common::StageEvent *event) {
       exe_event->done_immediate();
     }
     break;
-    case SCF_AGGREGATE:
+    case SCF_AGGREGATE:{
+      do_aggreagate(current_db,sql,exe_event->sql_event()->session_event());
+      exe_event->done_immediate();
+    }
+    break;
     case SCF_INSERT:
     case SCF_UPDATE:
     case SCF_DELETE:
@@ -454,6 +458,79 @@ bool match_table(const Selects &selects, const char *table_name_in_condition, co
   }
 
   return selects.relation_num == 1;
+}
+
+bool match_table(const Aggregates &aggregates, const char *table_name_in_condition, const char *table_name_to_match) {
+  if (table_name_in_condition != nullptr) {
+    return 0 == strcmp(table_name_in_condition, table_name_to_match);
+  }
+
+  return true;
+}
+
+
+static RC record_reader_aggregate_adapter(Record* record,void* context){
+  RecordAggregater &aggregater = *(RecordAggregater*)context;
+  return aggregater.update_record(record);
+}
+
+RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session_event){
+  Session *session = session_event->get_client()->session;
+  Trx *trx = session->current_trx();
+  const Aggregates &aggregates = sql->sstr.aggregation;
+  char* table_name = sql->sstr.aggregation.relation_name;
+  Table * table = DefaultHandler::get_default().find_table(db,table_name);
+  if (nullptr == table) {
+    LOG_WARN("No such table [%s] in db [%s]", table_name, db);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  
+
+  //这里不直接使用compositefilter的原因是担心需要多表查询的聚合
+  std::vector<DefaultConditionFilter *> condition_filters;
+  for (size_t i = 0; i < aggregates.condition_num; i++) {
+    const Condition &condition = aggregates.conditions[i];
+    if ((condition.left_is_attr == 0 && condition.right_is_attr == 0) || // 两边都是值
+        (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name)) ||  // 左边是属性右边是值
+        (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name)) ||  // 左边是值，右边是属性名
+        (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
+            match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name) && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name)) // 左右都是属性名，并且表名都符合
+        ) {
+      DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
+      RC rc = condition_filter->init(*table, condition);
+      if (rc != RC::SUCCESS) {
+        delete condition_filter;
+        session_event->set_response("FAILURE\n");
+        for (DefaultConditionFilter * &filter : condition_filters) {
+          delete filter;
+        }
+        return rc;
+      }
+      condition_filters.push_back(condition_filter);
+    }
+  }
+
+  CompositeConditionFilter filter;
+  filter.init((const ConditionFilter **)condition_filters.data(), condition_filters.size());
+
+  RecordAggregater aggregater(*table);
+  RC rc = aggregater.set_field(aggregates.field,aggregates.field_num);
+  if(rc!=RC::SUCCESS){
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  rc = table->scan_record(trx, &filter, -1, (void *)&aggregater, record_reader_aggregate_adapter);
+  if(rc!=RC::SUCCESS){
+    session_event->set_response("FAILURE\n");
+    return rc;
+  }
+  std::stringstream ss;
+  aggregater.agg_done();
+  TupleSet* tuple_set = aggregater.get_tupleset();
+  tuple_set->print(ss);
+  session_event->set_response(ss.str());
+  end_trx_if_need(session, trx, true);
+  return rc;
 }
 
 static RC schema_add_field(Table *table, const char *field_name, TupleSchema &schema) {

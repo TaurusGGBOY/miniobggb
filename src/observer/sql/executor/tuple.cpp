@@ -16,6 +16,10 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "common/log/log.h"
 #include "storage/common/date.h"
+#include <limits>
+#include <string>
+#include <regex>
+
 
 Tuple::Tuple(const Tuple &other) {
   LOG_PANIC("Copy constructor of tuple is not supported");
@@ -191,6 +195,10 @@ void TupleSet::set_schema(const TupleSchema &schema) {
   schema_ = schema;
 }
 
+void TupleSet::set_schema(const TupleSchema &&schema) {
+  schema_ = schema;
+}
+
 const TupleSchema &TupleSet::get_schema() const {
   return schema_;
 }
@@ -253,3 +261,249 @@ void TupleRecordConverter::add_record(const char *record) {
   tuple_set_.add(std::move(tuple));
 }
 
+RecordAggregater::RecordAggregater(Table& tab) : table_(tab){}
+
+RecordAggregater::~ RecordAggregater(){
+    //释放value，先判断类型避免delete void
+    for(int i=0;i!=value_.size();i++){
+      if(field_[i].second == ATF_COUNT){
+        continue;
+      }
+      else{
+        switch (field_[i].first->type())
+        {
+        case INTS:
+          delete (int*)value_[i];
+          break;
+        case FLOATS:
+          delete (float*)value_[i];
+          break;
+        default:
+          break;
+        }
+      }
+    }
+}
+
+RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_num){
+  TupleSchema schema;
+  for(int i=agg_field_num-1;i!=-1;i--){
+    //解析出来的顺序是反的，所以要反过来加入
+    const FieldMeta* fm = table_.table_meta_.field(agg_field[i].attribute_name);
+    LOG_INFO("%s ",agg_field[i].attribute_name);
+    if(fm==nullptr){
+      if(agg_field[i].aggregation_type!=ATF_COUNT)
+        return RC::SCHEMA_FIELD_NOT_EXIST;
+      else{
+        std::string typestr(agg_field[i].attribute_name,strlen(agg_field[i].attribute_name));
+          if(!std::regex_match(typestr,std::regex("[*]"))&&!std::regex_match(typestr,std::regex("[0-9]+"))){
+            return RC::SCHEMA_FIELD_NOT_EXIST;
+        }
+      }
+    }
+    field_.push_back({fm,agg_field[i].aggregation_type});
+    if(agg_field[i].aggregation_type == ATF_COUNT){
+      value_.push_back(nullptr);
+      schema.add(INTS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
+      continue;
+    }
+    else if(agg_field[i].aggregation_type == ATF_COUNT){
+      schema.add(FLOATS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
+    }
+    else{
+      schema.add(fm->type(),table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
+    }
+    switch(fm->type()){
+      //对不支持的类型插入一个空指针,目前只支持float,int
+      case FLOATS:{
+        float* tmp;
+        if(agg_field[i].aggregation_type == ATF_MAX)
+          tmp = new float(-std::numeric_limits<float>::max());
+        else if(agg_field[i].aggregation_type == ATF_MIN)
+          tmp = new float(std::numeric_limits<float>::max());
+        else{
+          tmp = new float(0);
+        }
+        value_.push_back(tmp);
+      }
+      break;
+      case DATES:
+      case INTS:{
+        int* tmp;
+        if(agg_field[i].aggregation_type == ATF_MAX)
+          tmp = new int(INT32_MIN);
+        else if(agg_field[i].aggregation_type == ATF_MIN)
+          tmp = new int(INT32_MAX);
+        else{
+          tmp = new int(0);
+        }
+        value_.push_back(tmp);
+      }
+      break;
+      default:
+        value_.push_back(nullptr);
+      break;
+    }  
+
+  }
+  if(value_.size()!=field_.size()){
+    LOG_ERROR("Get %d values and %d field",value_.size(),field_.size());
+  }
+  tupleset.set_schema(std::move(schema));
+  return RC::SUCCESS;
+}
+RC RecordAggregater::update_record(Record* rec){
+  rec_count++;
+  for(int i=0;i!=field_.size();i++){
+    if(value_[i]==nullptr){
+      //不支持的类型
+      continue;
+    }
+    void* field_data = malloc(sizeof(char)*field_[i].first->len());
+    memcpy(field_data,(rec->data)+field_[i].first->offset(),field_[i].first->len());
+    switch (field_[i].second)
+    {
+    //遍历过程对ATF_COUNT不做任何处理
+    case ATF_MAX:
+      {
+        switch (field_[i].first->type())
+        {
+        case INTS:
+        case DATES:
+          *(int*)value_[i] = std::max(*(int*)value_[i],*(int*)field_data);
+          LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
+          break;
+        case FLOATS:
+          *(float*)value_[i] = std::max(*(float*)value_[i],*(float*)field_data);
+          break;
+        default:
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          break;
+        }
+      }
+      break;
+    case ATF_MIN:
+      {
+        switch (field_[i].first->type())
+        {
+        case INTS:
+        case DATES:
+          *(int*)value_[i] = std::min(*(int*)value_[i],*(int*)field_data);
+          LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
+          break;
+        case FLOATS:
+          *(float*)value_[i] = std::min(*(float*)value_[i],*(float*)field_data);
+          break;
+        default:
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          break;
+        }
+      }
+      break;
+    case ATF_SUM:
+    case ATF_AVG:
+      {
+        switch (field_[i].first->type())
+        {
+        case INTS:
+        case DATES:
+          *(int*)value_[i] +=*(int*)field_data;
+          LOG_INFO("AGGREGATE %d with %d",*(int*)value_[i],*(int*)field_data);
+          break;
+        case FLOATS:
+          *(float*)value_[i] +=*(float*)field_data;
+          break;
+        default:
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          break;
+        }
+      }
+      break;
+
+    default:
+      break;
+    }
+    free(field_data);
+  }
+  return RC::SUCCESS;
+}
+void RecordAggregater::agg_done(){
+  //AVG字段要除，输出是一个float
+  //count字段原本是空指针现在需设置为count值，输出是一个int
+  Tuple tuple;
+  for(int i =0;i!=field_.size();i++){
+    switch (field_[i].second)
+    {
+    case ATF_COUNT:{
+      tuple.add(rec_count);
+      }
+      break;
+    case ATF_AVG:{
+      if(rec_count==0){
+        // float *ans = new float((float)*(int*)value_[i]/(float)rec_count);
+        // free(value_[i]);
+        // value_[i] = ans;
+        tuple.add(-1);
+      }else{
+        if(field_[i].first->type() == INTS)
+          tuple.add((float)*(int*)value_[i]/(float)rec_count);
+        else if(field_[i].first->type() == FLOATS)
+          tuple.add(*(float*)value_[i]/(float)rec_count);
+        else if(field_[i].first->type() == DATES)
+          tuple.add(*(int*)value_[i]/rec_count);
+        else
+          tuple.add(-1);
+      }
+    }
+      break;
+    default:{
+      switch (field_[i].first->type())
+      {
+      case INTS:
+      case DATES:
+        tuple.add(*(int*)value_[i]);
+        break;
+      case FLOATS:
+        tuple.add(*(float*)value_[i]);
+        break;
+      default:
+        break;
+      }
+    }
+      break;
+    }
+  }
+  tupleset.add(std::move(tuple));
+}
+
+
+std::string RecordAggregater::schema_field_name(const char *attr_name,enum AggregationTypeFlag flag){
+  std::string aggtypeWithattr;
+  switch (flag)
+  {
+  case ATF_MAX:
+    aggtypeWithattr+="max";
+    break;
+  case ATF_MIN:
+    aggtypeWithattr+="min";
+    break;
+  case ATF_SUM:
+    aggtypeWithattr+="sum";
+    break;
+  case ATF_COUNT:
+    aggtypeWithattr+="count";
+    break;
+  case ATF_AVG:
+    aggtypeWithattr+="avg";
+    break;
+  }
+
+  aggtypeWithattr+="(";
+  aggtypeWithattr+=attr_name;
+  aggtypeWithattr+=")";
+  return aggtypeWithattr;
+}
+
+TupleSet* RecordAggregater::get_tupleset(){
+  return &tupleset;
+}

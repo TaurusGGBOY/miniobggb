@@ -375,11 +375,23 @@ agg_field:
 	AGGREGATE LBRACE ID RBRACE agg_field_list {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$3,$1);
 	}
+	| AGGREGATE LBRACE STAR RBRACE agg_field_list {
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",$1);
+	}
+	| AGGREGATE LBRACE NUMBER RBRACE agg_field_list {
+		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,$3,$1);
+	}
 	;
 agg_field_list:
 	/* empty */
 	| COMMA AGGREGATE LBRACE ID RBRACE agg_field_list{
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$4,$2);
+	}
+	| COMMA AGGREGATE LBRACE STAR RBRACE agg_field_list {
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",$2);
+	}
+	| COMMA AGGREGATE LBRACE NUMBER RBRACE agg_field_list {
+		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,$4,$2);
 	}
 	;
 order:

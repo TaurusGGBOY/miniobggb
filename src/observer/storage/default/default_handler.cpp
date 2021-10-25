@@ -186,20 +186,6 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
   return table->update_record(trx, attribute_name, value, &condition_filter, updated_count);
 }
 
-RC DefaultHandler::aggregate_record(Trx* trx, const char *dbname, const char* relation_name,
-                  const AggregatesField* agg_fields,int agg_fileds_num,
-                  const Condition *conditions,int condition_num){
-  Table *table = find_table(dbname, relation_name);
-  if (nullptr == table) {
-    return RC::SCHEMA_TABLE_NOT_EXIST;
-  }
-  CompositeConditionFilter condition_filter;
-  RC rc = condition_filter.init(*table,conditions,condition_num);
-  if(rc !=RC::SUCCESS){
-    return rc;
-  }
-  return table->aggregate_record(trx,agg_fields,agg_fileds_num,&condition_filter);
-}
 
 Db *DefaultHandler::find_db(const char *dbname) const {
   std::map<std::string, Db*>::const_iterator iter = opened_dbs_.find(dbname);

@@ -52,6 +52,65 @@ typedef enum { UNDEFINED, CHARS, INTS, FLOATS, DATES } AttrType;
 typedef struct _Value {
   AttrType type;  // type of value
   void *data;     // value
+  //   bool operator+=(const _Value& right){
+  //   if(right.type==type){
+  //     switch (type)
+  //     {
+  //     case INTS:
+  //       *(int*)data += *(int*)right.data;
+  //       break;
+  //     case FLOATS:
+  //       *(float*)data += *(float*)right.data;
+  //       break;
+  //     case CHARS:{
+  //         char *sp = (char*)malloc(sizeof(char) * (strlen((char*)data)+strlen((char*)right.data)));
+  //         memcpy(sp,&data,strlen((char*)data));
+  //         memcpy(sp+strlen((char*)data),&right.data,strlen((char*)right.data));
+  //         free(data);
+  //         data = sp;
+  //       }
+  //       break;
+  //     default:
+  //       LOG_ERROR("Unsupported attrtype plus");
+  //       break;
+  //     }
+  //   } else{
+  //     if(type==FLOATS && right.type==INTS){
+  //       *(float*)data += *(int*)right.data;
+  //     }
+  //     else if(type==INTS && right.type==FLOATS){
+  //       *(int*)data += *(float*)right.data;
+  //     }else{
+  //       LOG_ERROR("Unsupported attrtype convert and plus");
+  //     }
+  //   }
+  // };
+
+  // bool operator-=(const _Value& right){
+  //   if(right.type==type){
+  //     switch (type)
+  //     {
+  //     case INTS:
+  //       *(int*)data -= *(int*)right.data;
+  //       break;
+  //     case FLOATS:
+  //       *(float*)data -= *(float*)right.data;
+  //       break;
+  //     default:
+  //       LOG_ERROR("Unsupported attrtype plus");
+  //       break;
+  //     }
+  //   } else{
+  //     if(type==FLOATS && right.type==INTS){
+  //       *(float*)data -= *(int*)right.data;
+  //     }
+  //     else if(type==INTS && right.type==FLOATS){
+  //       *(int*)data -= *(float*)right.data;
+  //     }else{
+  //       LOG_ERROR("Unsupported attrtype convert and plus");
+  //     }
+  //   }
+  // }
 } Value;
 
 typedef struct _Condition {
@@ -249,6 +308,7 @@ void updates_destroy(Updates *updates);
 
 void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition conditions[], size_t condition_num);
 void aggregates_destroy(Aggregates *aggregates);
+void aggregates_append_field_itoa(Aggregates *aggregates,int number,const char* type_name);
 void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);
