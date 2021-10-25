@@ -450,7 +450,7 @@ void RecordAggregater::agg_done(){
         else if(field_[i].first->type() == FLOATS)
           tuple.add(*(float*)value_[i]/(float)rec_count);
         else if(field_[i].first->type() == DATES)
-          tuple.add(*(int*)value_[i]/rec_count);
+          tuple.add_date(*(int*)value_[i]/rec_count);
         else
           tuple.add(-1);
       }
@@ -459,8 +459,10 @@ void RecordAggregater::agg_done(){
     default:{
       switch (field_[i].first->type())
       {
-      case INTS:
       case DATES:
+        tuple.add_date(*(int*)value_[i]);
+        break;
+      case INTS:
         tuple.add(*(int*)value_[i]);
         break;
       case FLOATS:
