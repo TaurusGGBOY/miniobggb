@@ -131,6 +131,7 @@ void ExecuteStage::handle_request(common::StageEvent *event) {
       do_aggreagate(current_db,sql,exe_event->sql_event()->session_event());
       exe_event->done_immediate();
     }
+    break;
     case SCF_INSERT:
     case SCF_UPDATE:
     case SCF_DELETE:
@@ -409,7 +410,7 @@ RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session
   tuple_set->print(ss);
   session_event->set_response(ss.str());
   end_trx_if_need(session, trx, true);
-
+  return rc;
 }
 
 static RC schema_add_field(Table *table, const char *field_name, TupleSchema &schema) {

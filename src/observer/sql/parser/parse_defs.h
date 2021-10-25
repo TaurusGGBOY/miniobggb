@@ -297,6 +297,7 @@ void updates_destroy(Updates *updates);
 
 void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition conditions[], size_t condition_num);
 void aggregates_destroy(Aggregates *aggregates);
+void aggregates_append_field_itoa(Aggregates *aggregates,int number,const char* type_name);
 void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);

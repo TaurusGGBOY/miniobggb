@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/date.h"
 #include <limits>
 #include <string>
+#include <regex>
 
 
 Tuple::Tuple(const Tuple &other) {
@@ -285,15 +286,32 @@ RecordAggregater::~ RecordAggregater(){
 }
 
 RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_num){
+  TupleSchema schema;
   for(int i=agg_field_num-1;i!=-1;i--){
     //解析出来的顺序是反的，所以要反过来加入
     const FieldMeta* fm = table_.table_meta_.field(agg_field[i].attribute_name);
-    if(fm==nullptr)
-      return RC::SCHEMA_FIELD_NOT_EXIST;
+    LOG_INFO("%s ",agg_field[i].attribute_name);
+    if(fm==nullptr){
+      if(agg_field[i].aggregation_type!=ATF_COUNT)
+        return RC::SCHEMA_FIELD_NOT_EXIST;
+      else{
+        std::string typestr(agg_field[i].attribute_name,strlen(agg_field[i].attribute_name));
+          if(!std::regex_match(typestr,std::regex("[*]"))&&!std::regex_match(typestr,std::regex("[0-9]+"))){
+            return RC::SCHEMA_FIELD_NOT_EXIST;
+        }
+      }
+    }
     field_.push_back({fm,agg_field[i].aggregation_type});
     if(agg_field[i].aggregation_type == ATF_COUNT){
       value_.push_back(nullptr);
+      schema.add(INTS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
       continue;
+    }
+    else if(agg_field[i].aggregation_type == ATF_COUNT){
+      schema.add(FLOATS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
+    }
+    else{
+      schema.add(fm->type(),table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
     }
     switch(fm->type()){
       //对不支持的类型插入一个空指针,目前只支持float,int
@@ -309,6 +327,7 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
         value_.push_back(tmp);
       }
       break;
+      case DATES:
       case INTS:{
         int* tmp;
         if(agg_field[i].aggregation_type == ATF_MAX)
@@ -330,6 +349,7 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
   if(value_.size()!=field_.size()){
     LOG_ERROR("Get %d values and %d field",value_.size(),field_.size());
   }
+  tupleset.set_schema(std::move(schema));
   return RC::SUCCESS;
 }
 RC RecordAggregater::update_record(Record* rec){
@@ -349,6 +369,7 @@ RC RecordAggregater::update_record(Record* rec){
         switch (field_[i].first->type())
         {
         case INTS:
+        case DATES:
           *(int*)value_[i] = std::max(*(int*)value_[i],*(int*)field_data);
           LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
@@ -366,6 +387,7 @@ RC RecordAggregater::update_record(Record* rec){
         switch (field_[i].first->type())
         {
         case INTS:
+        case DATES:
           *(int*)value_[i] = std::min(*(int*)value_[i],*(int*)field_data);
           LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
@@ -384,6 +406,7 @@ RC RecordAggregater::update_record(Record* rec){
         switch (field_[i].first->type())
         {
         case INTS:
+        case DATES:
           *(int*)value_[i] +=*(int*)field_data;
           LOG_INFO("AGGREGATE %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
@@ -407,18 +430,15 @@ RC RecordAggregater::update_record(Record* rec){
 void RecordAggregater::agg_done(){
   //AVG字段要除，输出是一个float
   //count字段原本是空指针现在需设置为count值，输出是一个int
-  TupleSchema schema;
   Tuple tuple;
   for(int i =0;i!=field_.size();i++){
     switch (field_[i].second)
     {
     case ATF_COUNT:{
       tuple.add(rec_count);
-      schema.add(INTS,table_.name(),schema_field_name(field_[i].first->name(),field_[i].second).c_str());
       }
       break;
     case ATF_AVG:{
-      schema.add(FLOATS,table_.name(),schema_field_name(field_[i].first->name(),field_[i].second).c_str());
       if(rec_count==0){
         // float *ans = new float((float)*(int*)value_[i]/(float)rec_count);
         // free(value_[i]);
@@ -429,16 +449,18 @@ void RecordAggregater::agg_done(){
           tuple.add((float)*(int*)value_[i]/(float)rec_count);
         else if(field_[i].first->type() == FLOATS)
           tuple.add(*(float*)value_[i]/(float)rec_count);
+        else if(field_[i].first->type() == DATES)
+          tuple.add(*(int*)value_[i]/rec_count);
         else
           tuple.add(-1);
       }
     }
       break;
     default:{
-      schema.add(field_[i].first->type(),table_.name(),schema_field_name(field_[i].first->name(),field_[i].second).c_str());
       switch (field_[i].first->type())
       {
       case INTS:
+      case DATES:
         tuple.add(*(int*)value_[i]);
         break;
       case FLOATS:
@@ -451,7 +473,6 @@ void RecordAggregater::agg_done(){
       break;
     }
   }
-  tupleset.set_schema(std::move(schema));
   tupleset.add(std::move(tuple));
 }
 

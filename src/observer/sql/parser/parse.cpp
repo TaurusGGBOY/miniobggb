@@ -242,6 +242,11 @@ void aggregates_destroy(Aggregates *aggregates){
   }
   aggregates->field_num = 0;
 }
+void aggregates_append_field_itoa(Aggregates *aggregates,int number,
+                           const char* type_name){
+    std::string attr_name = std::to_string(number);
+    aggregates_append_field(aggregates,attr_name.c_str(),type_name);
+}
 void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,
                            const char* type_name)
 {
