@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <string>
 #include <sstream>
+#include <set>
 
 #include "execute_stage.h"
 
@@ -221,8 +222,84 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
   }
 }
 
+bool check_one_condition(const CompOp &cmp, std::pair<int,int>& cond_record, Tuple& tuple)
+{
+    int cmp_res=tuple.get(cond_record.first).compare(tuple.get(cond_record.second));
+    switch (cmp) {
+      case EQUAL_TO:
+        return 0 == cmp_res;
+      case LESS_EQUAL:
+        return cmp_res <= 0;
+      case NOT_EQUAL:
+        return cmp_res != 0;
+      case LESS_THAN:
+        return cmp_res < 0;
+      case GREAT_EQUAL:
+        return cmp_res >= 0;
+      case GREAT_THAN:
+        return cmp_res > 0;
+      default:
+        break;
+    }
+    LOG_PANIC("Never should print this.");
+    return cmp_res;  // should not go here
+}
+
+bool check_all_condition(const Selects &selects, std::vector<std::pair<int,int>>& cond_record, Tuple& tuple) {
+  for(int i=0;i<cond_record.size();++i) {
+    if (cond_record[i].first == -1) {
+      continue;
+    }
+    if(!check_one_condition(selects.conditions[i].comp,cond_record[i],tuple)){
+      return false;
+    }
+  }
+  return true;
+}
+
+bool check_multi_table_condition(TupleSchema& schema,const Selects& selects, std::vector<std::pair<int,int>>& cond_record) {
+  for(int i=0;i< selects.condition_num;++i){
+    auto curr=selects.conditions[i];
+    //多表查询不允许表名为空
+    if(curr.left_is_attr && curr.left_attr.relation_name== nullptr) {
+      return false;
+    }
+    if(curr.right_is_attr && curr.right_attr.relation_name == nullptr) {
+      return false;
+    }
+    //都不为空需要判断字段是否存在
+    if(curr.right_is_attr && curr.left_is_attr) {
+      auto l_attr=curr.left_attr;
+      auto r_attr=curr.right_attr;
+      int l_match=-1;
+      int r_match=-1;
+      for(int i=0;i<schema.fields().size();++i) {
+        if(strcmp(schema.field(i).table_name(),l_attr.relation_name)==0 && strcmp(schema.field(i).field_name(),l_attr.attribute_name)==0) {
+          l_match=i;
+        }
+        if(strcmp(schema.field(i).table_name(),r_attr.relation_name)==0 && strcmp(schema.field(i).field_name(),r_attr.attribute_name)==0) {
+          r_match=i;
+        }
+      }
+      //如果比较的类型不同，失败
+      if(schema.field(l_match).type() != schema.field(r_match).type()) {
+        return false;
+      }
+      //左右两个字段如果一个不存在，返回失败
+      if(l_match==-1 || r_match==-1) {
+        return false;
+      }
+      cond_record.emplace_back(std::make_pair(l_match,r_match));
+    } else {
+      //如果不是双端都是attr，说明是单表condition，之前用过了，标记一下
+      cond_record.emplace_back(std::make_pair(-1,-1));
+    }
+  }
+  return true;
+}
 //lds:打印多表数据
-void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, std::vector<std::pair<int,int>>& print_order ,TupleSet& res ,bool finished=false) {
+void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<const Tuple*>& tuples,std::ostream &os, std::vector<std::pair<int,int>>& print_order ,
+                      const Selects &selects,std::vector<std::pair<int,int>>& cond_record ,TupleSet& res ,bool finished=false) {
   if(finished) {
     return;
   }
@@ -233,8 +310,9 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
       int k = print_order[i].second;
       curr.add(tuples[j]->values()[k]);
     }
-    res.add(std::move(curr));
-    finished=true;
+    if(check_all_condition(selects,cond_record,curr)){
+      res.add(std::move(curr));
+    }
     return ;
   }
 
@@ -247,7 +325,7 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
 
   for(auto& t:ts) {
     tuples.push_back(&t);
-    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,res,finished);
+    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,selects,cond_record,res,finished);
     tuples.pop_back();
   }
 }
@@ -418,20 +496,27 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
 
     TupleSchema schema;
     auto print_order=get_print_order(selects,tuple_sets,schema);
-    if(print_order.empty()) {
+    //判断多表条件字段是否合法
+    std::vector<std::pair<int,int>> cond_record;
+    if(!check_multi_table_condition(schema,selects,cond_record)) {
       ss.clear();
       ss << "FAILURE\n";
     } else {
-      std::vector<const Tuple*> tuples;
-      //schema.print(ss);
-      TupleSet res;
-      res.set_schema(schema);
-      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,res);
-      if(order_tuples(selects,res,tuple_sets.size())) {
-        res.print(ss);
-      } else {
+      if(print_order.empty()) {
         ss.clear();
         ss << "FAILURE\n";
+      } else {
+        std::vector<const Tuple*> tuples;
+        //schema.print(ss);
+        TupleSet res;
+        res.set_schema(schema);
+        print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,res);
+        if(order_tuples(selects,res,tuple_sets.size())) {
+          res.print(ss);
+        } else {
+          ss.clear();
+          ss << "FAILURE\n";
+        }
       }
     }
   } else {
