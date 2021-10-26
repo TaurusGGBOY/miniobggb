@@ -344,9 +344,13 @@ std::vector<std::pair<int,int>> get_print_order(const Selects &selects, std::vec
           schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
         }
       }
+      LOG_DEBUG("llds print_order size is %d",print_order.size());
+      return print_order;
+    } else if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") != 0) {
+      //do nothing, error
+      LOG_DEBUG("llds print_order size is %d",print_order.size());
+      return print_order;
     }
-    LOG_DEBUG("llds print_order size is %d",print_order.size());
-    return print_order;
   }
 
   for(int i=selects.attr_num-1;i>=0;--i) {
@@ -512,7 +516,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         res.set_schema(schema);
         print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,res);
         if(order_tuples(selects,res,tuple_sets.size())) {
-          res.print(ss);
+          res.print(ss,true);
         } else {
           ss.clear();
           ss << "FAILURE\n";
