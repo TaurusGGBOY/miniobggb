@@ -119,12 +119,20 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   if (type_left != type_right) {
     if(type_left == DATES && type_right ==CHARS){
       Date &date = Date::get_instance();
-      right.value = new int(date.date_to_int((const char*)condition.right_value.data));
+      int date_int = date.date_to_int((const char*)condition.right_value.data);
+      if(date_int == -1){
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      right.value = new int(date_int);
       // TODO memory leakage
       type_right = DATES;
     }else if(type_left==CHARS && type_right==DATES){
       Date &date = Date::get_instance();
-      left.value = new int(date.date_to_int((const char*)condition.left_value.data));
+      int date_int = date.date_to_int((const char *)condition.left_value.data); 
+      if (date_int == -1){
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      left.value = new int(date_int);
       // TODO memory leakage
       type_left = DATES;
     }else{
