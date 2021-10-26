@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/bplus_tree_index.h"
 #include "storage/trx/trx.h"
 #include "storage/common/date.h"
+#include <stdio.h>
 
 Table::Table() : 
     data_buffer_pool_(nullptr),
@@ -487,7 +488,37 @@ static RC insert_index_record_reader_adapter(Record *record, void *context) {
   return inserter.insert_index(record);
 }
 
+class UniqueIndexInserter{
+public:
+  explicit UniqueIndexInserter(Index *index) : index_(index) {
+  }
+
+  RC insert_index(const Record *record) {
+    int field_int_value = *(int*)(record->data+index_->get_field_offset());
+    if(set_.count(field_int_value)!=0){
+      LOG_ERROR("index create fail have dulpica");
+      return RC::ABORT;
+    }else{
+      LOG_INFO("index insert value:%d", field_int_value);
+      set_.insert(field_int_value);
+    }
+    return index_->insert_entry(record->data, &record->rid);
+  }
+private:
+  Index * index_;
+  std::set<int> set_;
+};
+
+static RC insert_unique_index_record_reader_adapter(Record *record, void *context) {
+  UniqueIndexInserter &inserter = *(UniqueIndexInserter *)context;
+  return inserter.insert_index(record);
+}
+
 RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name) {
+  return create_index(trx, index_name,attribute_name, false);
+}
+
+RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name, bool is_unique) {
   if (index_name == nullptr || common::is_blank(index_name) ||
       attribute_name == nullptr || common::is_blank(attribute_name)) {
     return RC::INVALID_ARGUMENT;
@@ -503,7 +534,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, *field_meta, is_unique);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -519,14 +550,23 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   }
 
   // 遍历当前的所有数据，插入这个索引
-  IndexInserter index_inserter(index);
-  rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  if(is_unique){
+    LOG_INFO("in unique create index");
+    UniqueIndexInserter index_inserter(index);
+    rc = scan_record(trx, nullptr, -1, &index_inserter, insert_unique_index_record_reader_adapter);
+  }else{
+    LOG_INFO("in not unique create index");
+    IndexInserter index_inserter(index);
+    rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+  } 
   if (rc != RC::SUCCESS) {
     // rollback
     delete index;
+    remove(index_file.c_str());
     LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
     return rc;
   }
+  LOG_INFO("index create success");
   indexes_.push_back(index);
 
   TableMeta new_table_meta(table_meta_);
@@ -584,28 +624,44 @@ class RecordUpdater{
 
   RC update_record(Record* rec){
     RC rc = RC::SUCCESS;
+    bool need_rollback = false;
     rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
+    // TODO memory leakage
+    char *bak = (char*)malloc(sizeof(char)*field_->len());
+    memcpy(rec->data + field_->offset(), &bak, field_->len());
 
     //将value的值复制到对应的偏移量处
     // if dates then save int rather char
     if(field_->type()==DATES){
       Date &date = Date::get_instance();
       int date_int = date.date_to_int((const char*)value_->data);
+      if(date_int == -1){
+        LOG_ERROR("wrong date format");
+        return RC::SCHEMA_FIELD_NOT_EXIST;
+      }
       memcpy(rec->data + field_->offset(), &date_int, field_->len());
     }else{
       memcpy(rec->data + field_->offset(), value_->data, field_->len());
     }
     
-
-    if(rc==RC::SUCCESS){
+    if(rc!=RC::SUCCESS){
       //update索引
+      if(rc!=RC::RECORD_INVALID_KEY){
+        need_rollback=false;
+        return rc;
+      }
+    } else {
+      need_rollback = true;
       table_.insert_entry_of_indexes(rec->data,rec->rid);
-    } else if(rc!=RC::RECORD_INVALID_KEY){
-      return rc;
     }
     
     rc = table_.update_record(trx_,rec);
-    if(rc==RC::SUCCESS){
+    if(rc!=RC::SUCCESS){
+      if(need_rollback){
+        memcpy(bak, rec->data + field_->offset(), field_->len());
+        table_.insert_entry_of_indexes(rec->data,rec->rid);
+      }
+    }else{
       update_count_++;
     }
     return rc;
@@ -740,6 +796,21 @@ RC Table::rollback_delete(Trx *trx, const RID &rid) {
 
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
   RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    index = (BplusTreeIndex*)index;
+    if(index->index_meta().unique()){
+      // TODO memory leakage
+      char *buf = (char*)malloc(sizeof(char)*(index->get_field_len()));
+      memcpy(buf, record+index->get_field_offset(), index->get_field_len());
+      IndexScanner* scanner = index->create_scanner(EQUAL_TO, buf);
+      RID rid;
+      rc=scanner->next_entry(&rid);
+      // if success then there is duplica
+      if(rc==RC::SUCCESS){
+        return RC::RECORD_DUPLICATE_KEY;
+      }
+    }
+  }
   for (Index *index : indexes_) {
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {

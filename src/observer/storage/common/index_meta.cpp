@@ -24,12 +24,17 @@ const static Json::StaticString FIELD_NAME("name");
 const static Json::StaticString FIELD_FIELD_NAME("field_name");
 
 RC IndexMeta::init(const char *name, const FieldMeta &field) {
+  return init(name,field,false);
+}
+
+RC IndexMeta::init(const char *name, const FieldMeta &field, int unique) {
   if (nullptr == name || common::is_blank(name)) {
     return RC::INVALID_ARGUMENT;
   }
 
   name_ = name;
   field_ = field.name();
+  unique_ = unique;
   return RC::SUCCESS;
 }
 
@@ -67,6 +72,10 @@ const char *IndexMeta::name() const {
 
 const char *IndexMeta::field() const {
   return field_.c_str();
+}
+
+const int IndexMeta::unique() const{
+  return unique_;
 }
 
 void IndexMeta::desc(std::ostream &os) const {

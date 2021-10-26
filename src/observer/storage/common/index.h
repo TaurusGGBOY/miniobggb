@@ -49,6 +49,14 @@ public:
 
   virtual RC sync() = 0;
 
+  int get_field_offset(){
+    return field_meta_.offset();
+  }
+
+  int get_field_len(){
+    return field_meta_.len();
+  }
+
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
 

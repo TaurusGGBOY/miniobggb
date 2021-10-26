@@ -144,7 +144,6 @@ RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field) {
 
   AttrType type = attr_type_from_string(type_value.asCString());
   if (UNDEFINED == type) {
-    printf("test:%s\n", type_value.asCString());
     LOG_ERROR("Got invalid field type. type=%d", type);
     return RC::GENERIC_ERROR;
   }

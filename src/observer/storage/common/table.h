@@ -66,6 +66,7 @@ public:
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name);
 
+  RC create_index(Trx *trx, const char *index_name, const char *attribute_name, bool is_unique);
 public:
   const char *name() const;
 

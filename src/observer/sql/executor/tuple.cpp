@@ -225,6 +225,7 @@ TupleRecordConverter::TupleRecordConverter(Table *table, TupleSet &tuple_set) :
 }
 
 void TupleRecordConverter::add_record(const char *record) {
+  // TODO mark
   const TupleSchema &schema = tuple_set_.schema();
   Tuple tuple;
   const TableMeta &table_meta = table_->table_meta();
