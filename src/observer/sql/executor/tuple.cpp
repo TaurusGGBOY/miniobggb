@@ -273,10 +273,14 @@ RecordAggregater::~ RecordAggregater(){
         switch (field_[i].first->type())
         {
         case INTS:
+        case DATES:
           delete (int*)value_[i];
           break;
         case FLOATS:
           delete (float*)value_[i];
+          break;
+        case CHARS:
+          delete (char*)value_[i];
           break;
         default:
           break;
@@ -295,6 +299,7 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
       if(agg_field[i].aggregation_type!=ATF_COUNT)
         return RC::SCHEMA_FIELD_NOT_EXIST;
       else{
+        //判断是否是count(*)或者count(num)的情况
         std::string typestr(agg_field[i].attribute_name,strlen(agg_field[i].attribute_name));
           if(!std::regex_match(typestr,std::regex("[*]"))&&!std::regex_match(typestr,std::regex("[0-9]+"))){
             return RC::SCHEMA_FIELD_NOT_EXIST;
@@ -307,7 +312,7 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
       schema.add(INTS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
       continue;
     }
-    else if(agg_field[i].aggregation_type == ATF_COUNT){
+    else if(agg_field[i].aggregation_type == ATF_AVG){
       schema.add(FLOATS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
     }
     else{
@@ -340,6 +345,14 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
         value_.push_back(tmp);
       }
       break;
+      case CHARS:{
+        char* tmp = new char('\0');
+        if(agg_field[i].aggregation_type == ATF_AVG || agg_field[i].aggregation_type == ATF_SUM){
+          return RC::SCHEMA_FIELD_NOT_EXIST;
+        }
+        value_.push_back(tmp);
+      }
+      break;
       default:
         value_.push_back(nullptr);
       break;
@@ -352,7 +365,17 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
   tupleset.set_schema(std::move(schema));
   return RC::SUCCESS;
 }
+void str_set_cmp(void*& target, void*& value, bool is_max){
+  if(*(char*)target=='\0'){
+    std::swap(target,value);
+  }
+  else if((strcmp((char*)target,(char*)value)>0)^is_max){
+    std::swap(target,value);
+  }
+  
+}
 RC RecordAggregater::update_record(Record* rec){
+  LOG_TRACE("Enter");
   rec_count++;
   for(int i=0;i!=field_.size();i++){
     if(value_[i]==nullptr){
@@ -371,10 +394,12 @@ RC RecordAggregater::update_record(Record* rec){
         case INTS:
         case DATES:
           *(int*)value_[i] = std::max(*(int*)value_[i],*(int*)field_data);
-          LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
         case FLOATS:
           *(float*)value_[i] = std::max(*(float*)value_[i],*(float*)field_data);
+          break;
+        case CHARS:
+          str_set_cmp(value_[i],field_data,true);
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -389,10 +414,12 @@ RC RecordAggregater::update_record(Record* rec){
         case INTS:
         case DATES:
           *(int*)value_[i] = std::min(*(int*)value_[i],*(int*)field_data);
-          LOG_INFO("Compare min %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
         case FLOATS:
           *(float*)value_[i] = std::min(*(float*)value_[i],*(float*)field_data);
+          break;
+        case CHARS:
+          str_set_cmp(value_[i],field_data,false);
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -408,7 +435,6 @@ RC RecordAggregater::update_record(Record* rec){
         case INTS:
         case DATES:
           *(int*)value_[i] +=*(int*)field_data;
-          LOG_INFO("AGGREGATE %d with %d",*(int*)value_[i],*(int*)field_data);
           break;
         case FLOATS:
           *(float*)value_[i] +=*(float*)field_data;
@@ -467,6 +493,8 @@ void RecordAggregater::agg_done(){
         break;
       case FLOATS:
         tuple.add(*(float*)value_[i]);
+      case CHARS:
+        tuple.add((char*)value_[i],strlen((char*)value_[i]));
         break;
       default:
         break;
