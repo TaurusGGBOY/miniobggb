@@ -84,7 +84,7 @@ void value_init_date(Value *value, const char *v) {
   value->type = DATES;
   Date& date = Date::get_instance();
   int date_stamp = date.date_to_int(strdup(v));
-  if(date_stamp==-1){
+  if(date_stamp < 0){
     value->data = nullptr;
   }else{
     value->data = malloc(sizeof(date_stamp));

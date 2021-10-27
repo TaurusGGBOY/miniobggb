@@ -9,7 +9,7 @@ static const std::regex p("^(?:[0-9]{4}([-/.]?)(?:(?:0?[1-9]|1[0-2])([-/.]?)(?:0
 int Date::date_to_int(const char * date)
 {
     if(!is_legal(date)){
-        return -1;
+        return -1001;
     }
     std::tm tm = {};
     strptime(date, "%Y-%m-%d", &tm);
@@ -21,10 +21,12 @@ int Date::date_to_int(const char * date)
 
 void Date::int_to_date(int day, char* buf)
 {
-    long long seconds = (day+1) * 24 * 60 * 60;
-    std::time_t t(seconds);
-    struct tm *ptr=localtime(&t);
-    strftime(buf,40,"%Y-%m-%d",ptr);
+    long long seconds = day * 24 * 60 * 60 + (long long)8 * 60 * 60;
+    auto mTime = std::chrono::seconds(seconds);
+    auto tp = std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>(mTime);
+    auto tt = std::chrono::system_clock::to_time_t(tp);
+    std::tm *now = gmtime(&tt);
+    strftime(buf, 40, "%Y-%m-%d", now);
 }
 
 bool Date::is_legal(const char* date){

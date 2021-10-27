@@ -317,7 +317,7 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
         Date &date = Date::get_instance();
         int date_int = date.date_to_int((const char*)value.data);
         // if wrong date format
-        if(date_int==-1){
+        if(date_int < 0){
           LOG_ERROR("Invalid date type. field name=%s, type=%d, but given=%d",
           field->name(), field->type(), value.type);
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -635,7 +635,7 @@ class RecordUpdater{
     if(field_->type()==DATES){
       Date &date = Date::get_instance();
       int date_int = date.date_to_int((const char*)value_->data);
-      if(date_int == -1){
+      if(date_int < 0){
         LOG_ERROR("wrong date format");
         return RC::SCHEMA_FIELD_NOT_EXIST;
       }

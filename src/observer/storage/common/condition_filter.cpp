@@ -120,7 +120,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     if(type_left == DATES && type_right ==CHARS){
       Date &date = Date::get_instance();
       int date_int = date.date_to_int((const char*)condition.right_value.data);
-      if(date_int == -1){
+      if(date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       right.value = new int(date_int);
@@ -129,7 +129,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     }else if(type_left==CHARS && type_right==DATES){
       Date &date = Date::get_instance();
       int date_int = date.date_to_int((const char *)condition.left_value.data); 
-      if (date_int == -1){
+      if (date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
       left.value = new int(date_int);
