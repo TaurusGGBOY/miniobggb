@@ -494,6 +494,7 @@ void RecordAggregater::agg_done(){
         break;
       case FLOATS:
         tuple.add(*(float*)value_[i]);
+        break;
       case CHARS:
         tuple.add((char*)value_[i],std::min((int)strlen((char*)value_[i]),field_[i].first->len()));
         break;
