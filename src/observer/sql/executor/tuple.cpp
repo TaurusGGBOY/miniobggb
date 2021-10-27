@@ -250,7 +250,7 @@ void TupleRecordConverter::add_record(const char *record) {
         break;
       case CHARS: {
         const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
-        tuple.add(s, strlen(s));
+        tuple.add(s, std::min((int)strlen(s),field_meta->len()));
       }
       break;
       default: {
@@ -495,7 +495,7 @@ void RecordAggregater::agg_done(){
       case FLOATS:
         tuple.add(*(float*)value_[i]);
       case CHARS:
-        tuple.add((char*)value_[i],strlen((char*)value_[i]));
+        tuple.add((char*)value_[i],std::min((int)strlen((char*)value_[i]),field_[i].first->len()));
         break;
       default:
         break;
