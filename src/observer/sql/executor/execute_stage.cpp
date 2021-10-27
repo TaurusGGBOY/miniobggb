@@ -224,6 +224,10 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
 
 bool check_one_condition(const CompOp &cmp, std::pair<int,int>& cond_record, Tuple& tuple)
 {
+    std::stringstream s1,s2;
+    tuple.get(cond_record.first).to_string(s1);
+    tuple.get(cond_record.second).to_string(s2);
+    LOG_DEBUG("check %s and %s", s1.str().c_str(),s2.str().c_str());
     int cmp_res=tuple.get(cond_record.first).compare(tuple.get(cond_record.second));
     switch (cmp) {
       case EQUAL_TO:
@@ -258,13 +262,16 @@ bool check_all_condition(const Selects &selects, std::vector<std::pair<int,int>>
 }
 
 bool check_multi_table_condition(TupleSchema& schema,const Selects& selects, std::vector<std::pair<int,int>>& cond_record) {
+  size_t count=0;
   for(int i=0;i< selects.condition_num;++i){
     auto curr=selects.conditions[i];
     //多表查询不允许表名为空
     if(curr.left_is_attr && curr.left_attr.relation_name== nullptr) {
+      LOG_DEBUG("multi table select:relation name is null");
       return false;
     }
     if(curr.right_is_attr && curr.right_attr.relation_name == nullptr) {
+      LOG_DEBUG("multi table select:relation name is null");
       return false;
     }
     //都不为空需要判断字段是否存在
@@ -283,18 +290,21 @@ bool check_multi_table_condition(TupleSchema& schema,const Selects& selects, std
       }
       //如果比较的类型不同，失败
       if(schema.field(l_match).type() != schema.field(r_match).type()) {
+        LOG_DEBUG("multi table select:condition value type is not same");
         return false;
       }
-      //左右两个字段如果一个不存在，返回失败
+      //左右两个字段如果一个不存在，返回失败 ,不应该出现
       if(l_match==-1 || r_match==-1) {
         return false;
       }
       cond_record.emplace_back(std::make_pair(l_match,r_match));
+      count+=1;
     } else {
       //如果不是双端都是attr，说明是单表condition，之前用过了，标记一下
       cond_record.emplace_back(std::make_pair(-1,-1));
     }
   }
+  LOG_DEBUG("condition record size is %d", count);
   return true;
 }
 //lds:打印多表数据
@@ -445,6 +455,7 @@ bool order_tuples(const Selects &selects, TupleSet& tuple_set, int size) {
   tuple_set.sort(Comparator(order_fields));
   return true;
 }
+
 // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
 RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_event) {
@@ -497,32 +508,60 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   if (tuple_sets.size() > 1) {
     // 本次查询了多张表，需要做join操作
     LOG_DEBUG("print multi table tuple set");
-
+    std::reverse(tuple_sets.begin(),tuple_sets.end());
     TupleSchema schema;
-    auto print_order=get_print_order(selects,tuple_sets,schema);
-    //判断多表条件字段是否合法
+    for(auto& t:tuple_sets) {
+      schema.append(t.get_schema());
+    }
     std::vector<std::pair<int,int>> cond_record;
-    if(!check_multi_table_condition(schema,selects,cond_record)) {
-      ss.clear();
-      ss << "FAILURE\n";
-    } else {
+    while(true) {
+      if(!check_multi_table_condition(schema,selects,cond_record)) {
+        ss.clear();
+        ss << "FAILURE\n";
+        LOG_DEBUG("check multi table condition failure");
+        break;
+      }
+      std::vector<std::pair<int,int>> print_order;
+      for(int i=0;i<tuple_sets.size();i++) {
+        for(int j=0;j<tuple_sets[i].get_schema().fields().size();++j){
+          print_order.push_back({i,j});
+        }
+      }
+      std::vector<const Tuple*> tuples;
+      //schema.print(ss);
+      TupleSet mid_tuple_set;
+      mid_tuple_set.set_schema(schema);
+      //算笛卡尔积，过滤数据
+      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,mid_tuple_set);
+      //排序
+      if(!order_tuples(selects,mid_tuple_set,tuple_sets.size())) {
+        ss.clear();
+        ss << "FAILURE\n";
+        LOG_DEBUG("order tuple condition failure");
+        break;
+      }
+      std::vector<TupleSet> res_set;
+      //获取打印顺序
+      res_set.emplace_back(std::move(mid_tuple_set));
+      TupleSchema res_schema;
+      print_order=get_print_order(selects,res_set,res_schema);
       if(print_order.empty()) {
         ss.clear();
         ss << "FAILURE\n";
-      } else {
-        std::vector<const Tuple*> tuples;
-        //schema.print(ss);
-        TupleSet res;
-        res.set_schema(schema);
-        print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,res);
-        if(order_tuples(selects,res,tuple_sets.size())) {
-          res.print(ss,true);
-        } else {
-          ss.clear();
-          ss << "FAILURE\n";
-        }
+        LOG_DEBUG("get print order condition failure");
+        break;
       }
+      //获取最终打印表
+      TupleSet res;
+      res.set_schema(res_schema);
+      tuples.clear();
+      cond_record.clear();
+      print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
+      res.print(ss,tuple_sets.size());
+      break;
     }
+
+
   } else {
     // 当前只查询一张表，直接返回结果即可
     if(order_tuples(selects,tuple_sets.front(),1)) {
@@ -680,6 +719,24 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         return rc;
       }
       condition_filters.push_back(condition_filter);
+    }
+    //如果两边都是attr，拿属于自己的去查表，多表查询做过滤需要
+    else if( condition.left_is_attr == 1 && condition.right_is_attr == 1) {
+      if(condition.left_attr.relation_name==nullptr || condition.right_attr.relation_name == nullptr) {
+        return RC::INVALID_ARGUMENT;
+      }
+      if(strcmp(condition.left_attr.relation_name,table_name) == 0 ) {
+        RC rc = schema_add_field(table, condition.left_attr.attribute_name, schema);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+      }
+      if(strcmp(condition.right_attr.relation_name,table_name) == 0) {
+        RC rc = schema_add_field(table, condition.right_attr.attribute_name, schema);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+      }
     }
   }
 
