@@ -454,6 +454,55 @@ RC RecordAggregater::update_record(Record* rec){
   }
   return RC::SUCCESS;
 }
+RC RecordAggregater::get_condition_value(Value* conditionvalue){
+  //设置返回的value类的类型
+  if(value_.size()!=1){
+    LOG_ERROR("Get %d values!",value_.size());
+  }
+  switch (field_[0].second)
+  {
+  case ATF_COUNT:{
+    conditionvalue->type = INTS;
+    conditionvalue->data = new int(rec_count);
+    }
+    break;
+  case ATF_AVG:{
+    conditionvalue->type = FLOATS;
+    conditionvalue->data = new float;
+    if(rec_count==0){
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }else{
+      if(field_[0].first->type() == INTS)
+        *((float*)conditionvalue->data) = (float)*(int*)value_[0]/(float)rec_count;
+      else if(field_[0].first->type() == FLOATS)
+        *((float*)conditionvalue->data) = *(float*)value_[0]/(float)rec_count;
+      else if(field_[0].first->type() == DATES)
+        *((int*)conditionvalue->data) = *(int*)value_[0]/rec_count;
+      else
+        return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
+  }
+    break;
+  default:{
+    conditionvalue->type = field_[0].first->type();
+    switch(field_[0].first->type()){
+      case INTS:
+      case DATES:
+        conditionvalue->data = new int(*(int*)value_[0]);
+      break;
+      case FLOATS:
+        conditionvalue->data = new float(*(float*)value_[0]);
+      break;
+      case CHARS:
+        conditionvalue->data = strdup((char*)value_[0]);
+      break;
+    }
+  }
+    break;
+  }
+
+  return RC::SUCCESS;
+}
 void RecordAggregater::agg_done(){
   //AVG字段要除，输出是一个float
   //count字段原本是空指针现在需设置为count值，输出是一个int

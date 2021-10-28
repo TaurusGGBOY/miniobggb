@@ -135,6 +135,21 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       left.value = new int(date_int);
       // TODO memory leakage
       type_left = DATES;
+    }else if(type_left==INTS && type_right==FLOATS){
+      if(left.is_attr){
+        differ_type = true;
+      }
+      else{
+        left.value = new float(*(int*)condition.left_value.data);
+      }
+    }else if(type_left==FLOATS && type_right==INTS){
+      if(left.is_attr){
+        right.value = new float(*(int*)condition.right_value.data);
+      }
+      else{
+        differ_type = true;
+        type_left = INTS;
+      }
     }else{
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
@@ -171,9 +186,25 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     case INTS: {
       // 没有考虑大小端问题
       // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
-      int left = *(int *)left_value;
-      int right = *(int *)right_value;
-      cmp_result = left - right;
+      if(differ_type){
+        float left;
+        float right;
+        if(left_.is_attr){
+          left = (float)*(int*)left_value;
+          right = *(float*)right_value;
+        }
+        else{
+          left = *(float*)left_value;
+          right = (float)*(int*)right_value;
+        }
+        cmp_result = (int)(left - right);
+      }
+      else{
+        int left = *(int *)left_value;
+        int right = *(int *)right_value;
+        cmp_result = left - right;
+      }
+      
     } break;
     case FLOATS: {
       float left = *(float *)left_value;
