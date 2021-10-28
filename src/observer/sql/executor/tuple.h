@@ -204,6 +204,7 @@ class RecordAggregater {
   RC set_field(const AggregatesField* agg_field,int agg_field_num);
   RC update_record(Record* rec);
   void agg_done();
+  RC get_condition_value(Value* conditionvalue);
   TupleSet* get_tupleset();
 
 

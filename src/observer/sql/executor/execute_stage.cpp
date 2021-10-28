@@ -601,13 +601,27 @@ static RC record_reader_aggregate_adapter(Record* record,void* context){
   RecordAggregater &aggregater = *(RecordAggregater*)context;
   return aggregater.update_record(record);
 }
+//提供在查询条件中将聚合字段作为返回值,返回一个标量
+RC aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
+                    Value* value_,CompositeConditionFilter* filter){
+    AggregatesField field{attr_name,flag};
+    RecordAggregater aggregater(*table);
+    RC rc = aggregater.set_field(&field,1);
+    if(rc !=SUCCESS)
+      return rc;
+    rc = table->scan_record(trx, filter, -1, (void *)&aggregater, record_reader_aggregate_adapter);
+    if(rc !=SUCCESS)
+      return rc;
+    rc = aggregater.get_condition_value(value_);
+    return rc;
+}
 
 RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session_event){
   Session *session = session_event->get_client()->session;
   Trx *trx = session->current_trx();
   const Aggregates &aggregates = sql->sstr.aggregation;
   char* table_name = sql->sstr.aggregation.relation_name;
-  Table * table = DefaultHandler::get_default().find_table(db,table_name);
+  Table* table = DefaultHandler::get_default().find_table(db,table_name);
   if (nullptr == table) {
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
     return RC::SCHEMA_TABLE_NOT_EXIST;
