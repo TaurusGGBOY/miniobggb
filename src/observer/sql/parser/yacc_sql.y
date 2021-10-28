@@ -16,6 +16,9 @@ typedef struct ParserContext {
   size_t condition_length;
   size_t from_length;
   size_t value_length;
+  size_t values_size;
+  Value values_list[MAX_NUM][MAX_NUM];
+  size_t values_length_list[MAX_NUM];
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
   CompOp comp;
@@ -291,7 +294,7 @@ ID_get:
 
 	
 insert:				/*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE SEMICOLON 
+    INSERT INTO ID VALUES LBRACE value value_list RBRACE other_values SEMICOLON
 		{
 			// CONTEXT->values[CONTEXT->value_length++] = *$6;
 
@@ -301,36 +304,57 @@ insert:				/*insert   语句的语法解析树*/
 			// for(i = 0; i < CONTEXT->value_length; i++){
 			// 	CONTEXT->ssql->sstr.insertion.values[i] = CONTEXT->values[i];
       // }
-			inserts_init(&CONTEXT->ssql->sstr.insertion, $3, CONTEXT->values, CONTEXT->value_length);
+			inserts_init(&CONTEXT->ssql->sstr.insertion, $3, CONTEXT->values_list,CONTEXT->values_length_list, CONTEXT->values_size);
 
       //临时变量清零
       CONTEXT->value_length=0;
+      CONTEXT->values_size=0;
     }
+
+other_values:
+
+    | COMMA LBRACE value value_list RBRACE other_values {
+        //printf("other values\n");
+
+    };
 
 value_list:
     /* empty */
+    {
+        //printf("value list finished \n");
+        for(int i=0;i<CONTEXT->value_length;++i) {
+            CONTEXT->values_list[CONTEXT->values_size][i]=CONTEXT->values[i];
+        }
+        CONTEXT->values_length_list[CONTEXT->values_size]=CONTEXT->value_length;
+        CONTEXT->value_length=0;
+        CONTEXT->values_size+=1;
+    }
     | COMMA value value_list  { 
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
 	  }
     ;
 value:
-    NUMBER{	
+    NUMBER{
+    //printf("value\n");
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     |FLOAT{
+    //printf("value\n");
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
 	// TODO there is bug if string column input date format data
 	|DATE {
+	//printf("value\n");
 		$1 = substr($1,1,strlen($1)-2);
   		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     |SSS {
+    //printf("value\n");
 		$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     ;
-    
+
 delete:		/*  delete 语句的语法解析树*/
     DELETE FROM ID where SEMICOLON 
 		{
