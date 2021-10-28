@@ -266,6 +266,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values) {
   RC rc = make_record(value_num, values, record_data);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+    if(trx!= nullptr) {
+      trx->rollback();
+    }
     return rc;
   }
 
@@ -273,6 +276,9 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values) {
   record.data = record_data;
   // record.valid = true;
   rc = insert_record(trx, &record);
+  if(rc!=RC::SUCCESS && trx != nullptr) {
+    trx->rollback();
+  }
   delete[] record_data;
   return rc;
 }
