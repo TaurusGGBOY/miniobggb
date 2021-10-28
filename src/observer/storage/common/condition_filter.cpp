@@ -176,11 +176,11 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     right_value = (char *)right_.value;
   }
 
-  int cmp_result = 0;
+  float cmp_result = 0;
   switch (attr_type_) {
     case CHARS: {  // 字符串都是定长的，直接比较
       // 按照C字符串风格来定
-      cmp_result = strcmp(left_value, right_value);
+      cmp_result = (float)strcmp(left_value, right_value);
     } break;
     case DATES:
     case INTS: {
@@ -197,19 +197,19 @@ bool DefaultConditionFilter::filter(const Record &rec) const
           left = *(float*)left_value;
           right = (float)*(int*)right_value;
         }
-        cmp_result = (int)(left - right);
+        cmp_result = left - right;
       }
       else{
         int left = *(int *)left_value;
         int right = *(int *)right_value;
-        cmp_result = left - right;
+        cmp_result = (float)(left - right);
       }
       
     } break;
     case FLOATS: {
       float left = *(float *)left_value;
       float right = *(float *)right_value;
-      cmp_result = (int)(left - right);
+      cmp_result = left - right;
     } break;
     default: {
     }
