@@ -71,6 +71,7 @@ ParserContext *get_context(yyscan_t scanner)
         TABLES
         INDEX
         SELECT
+        INNER_JOIN
         DESC
         SHOW
         SYNC
@@ -383,6 +384,23 @@ select:				/*  select 语句的语法解析树*/
 		aggregates_init(&CONTEXT->ssql->sstr.aggregation,$4,CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->condition_length = 0;
 	}
+	
+	| SELECT select_attr FROM ID inner_join  on_list where order SEMICOLON {
+			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
+			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
+
+			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
+
+			CONTEXT->ssql->flag=SCF_SELECT;//"select";
+			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
+
+			//临时变量清零
+			CONTEXT->condition_length=0;
+			CONTEXT->from_length=0;
+			CONTEXT->select_length=0;
+			CONTEXT->value_length = 0;
+	}
+
     | SELECT select_attr FROM ID rel_list where order SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
@@ -398,8 +416,21 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
-			} 
+			}
 	;
+
+on_list:
+    | ON condition condition_list {
+
+    }
+    ;
+
+inner_join:
+    | INNER_JOIN ID inner_join {
+        selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+    }
+    ;
+
 agg_field: 
 	AGGREGATE LBRACE ID RBRACE agg_field_list {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$3,$1);

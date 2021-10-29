@@ -116,7 +116,21 @@ int TupleSchema::index_of_field(const char *table_name, const char *field_name) 
   }
   return -1;
 }
-
+void TupleSchema::print_by_order(std::ostream &os, std::vector<std::pair<int, int>> &order) const {
+  if (fields_.empty()) {
+    os << "No schema";
+    return;
+  }
+  for(int i=0;i<order.size();++i) {
+    auto f=fields_[order[i].second];
+    os << f.table_name() << "." << f.field_name();
+    if(i==order.size()-1) {
+      os << std::endl;
+    } else {
+      os << " | ";
+    }
+  }
+}
 void TupleSchema::print(std::ostream &os,bool table_name) const {
   if (fields_.empty()) {
     os << "No schema";
@@ -169,6 +183,25 @@ void TupleSet::add(Tuple &&tuple) {
 void TupleSet::clear() {
   tuples_.clear();
   schema_.clear();
+}
+
+void TupleSet::print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order) const {
+  if (schema_.fields().empty()) {
+    LOG_WARN("Got empty schema");
+    return;
+  }
+  schema_.print_by_order(os,print_order);
+  for (const Tuple &item : tuples_) {
+    const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
+    for(int i=0;i< print_order.size();++i) {
+      values[print_order[i].second]->to_string(os);
+      if(i==print_order.size()-1) {
+        os << std::endl;
+      } else {
+        os << " | ";
+      }
+    }
+  }
 }
 
 void TupleSet::print(std::ostream &os, bool table_name) const {

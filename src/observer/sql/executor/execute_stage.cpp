@@ -530,19 +530,20 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       std::vector<const Tuple*> tuples;
       //schema.print(ss);
       TupleSet mid_tuple_set;
-      mid_tuple_set.set_schema(schema);
+      std::vector<TupleSet> res_set;
+      res_set.emplace_back(std::move(mid_tuple_set));
+      res_set.back().set_schema(schema);
       //算笛卡尔积，过滤数据
-      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,mid_tuple_set);
+      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,selects,cond_record,res_set.back());
       //排序
-      if(!order_tuples(selects,mid_tuple_set,tuple_sets.size())) {
+      if(!order_tuples(selects,res_set.back(),tuple_sets.size())) {
         ss.clear();
         ss << "FAILURE\n";
         LOG_DEBUG("order tuple condition failure");
         break;
       }
-      std::vector<TupleSet> res_set;
       //获取打印顺序
-      res_set.emplace_back(std::move(mid_tuple_set));
+
       TupleSchema res_schema;
       print_order=get_print_order(selects,res_set,res_schema);
       if(print_order.empty()) {
@@ -552,12 +553,12 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         break;
       }
       //获取最终打印表
-      TupleSet res;
-      res.set_schema(res_schema);
-      tuples.clear();
-      cond_record.clear();
-      print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
-      res.print(ss,tuple_sets.size());
+      //TupleSet res;
+      //res.set_schema(res_schema);
+      //tuples.clear();
+      //cond_record.clear();
+      //print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
+      res_set.back().print_by_order(ss,print_order);
       break;
     }
 
