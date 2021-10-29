@@ -110,7 +110,7 @@ public:
   void clear() {
     fields_.clear();
   }
-
+  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& order) const;
   void print(std::ostream &os, bool table_name) const;
 public:
   static void from_table(const Table *table, TupleSchema &schema);
@@ -171,7 +171,7 @@ public:
   int size() const;
   const Tuple &get(int index) const;
   const std::vector<Tuple> &tuples() const;
-
+  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order) const;
   void print(std::ostream &os, bool table_name=false) const;
 public:
   const TupleSchema &schema() const {
