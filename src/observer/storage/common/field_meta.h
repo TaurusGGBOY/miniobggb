@@ -30,16 +30,14 @@ public:
   ~FieldMeta() = default;
 
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible);
+  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int nullable);
 public:
   const char *name() const;
   AttrType    type() const;
   int         offset() const;
   int         len() const;
   bool        visible() const;
-  int unique() const;
-  void set_unique(int unique){
-    unique_ = unique;
-  }
+  int nullable() const;
 
 public:
   void desc(std::ostream &os) const;
@@ -53,6 +51,6 @@ private:
   int          attr_offset_;
   int          attr_len_;
   bool         visible_;
-  int unique_;
+  int nullable_;
 };
 #endif // __OBSERVER_STORAGE_COMMON_FIELD_META_H__

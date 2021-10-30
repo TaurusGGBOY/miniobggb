@@ -29,6 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/trx/trx.h"
 #include "storage/common/date.h"
 #include <stdio.h>
+#include "storage/common/bitmap.h"
 
 Table::Table() : 
     data_buffer_pool_(nullptr),
@@ -286,50 +287,74 @@ const TableMeta &Table::table_meta() const {
 }
 
 RC Table::make_record(int value_num, const Value *values, char * &record_out) {
-  // 检查字段类型是否一致
-  if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
+  LOG_TRACE("in make record");
+  // 检查字段类型是否一致 null is not count
+  if (value_num + table_meta_.sys_field_num()+1 != table_meta_.field_num()) {
+    // printf("%d!=%d\n", value_num + table_meta_.sys_field_num(), table_meta_.field_num());
     return RC::SCHEMA_FIELD_MISSING;
   }
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  // type check && skip first null
+  // because null field at first, so i+1 is the field inserted
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i + 1 + normal_field_start_index);
     const Value &value = values[i];
-    if (field->type() != value.type) {
-      // if dates or chars
-      if(field->type()==DATES&&value.type==CHARS){
-        continue;
+    // TODO may be wrong in compare NULL
+    if(value.type == NULLS){
+      if(field->nullable()==0){
+         LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=NULL",
+          field->name(), field->type());
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
-        field->name(), field->type(), value.type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }else{
+      if (field->type() != value.type) {
+        // if dates or chars
+        if(field->type()==DATES&&value.type==CHARS){
+          continue;
+        }
+        LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
+          field->name(), field->type(), value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
     }
   }
-
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record = new char [record_size];
-
+  int bitmap_offset = table_meta_.field(normal_field_start_index)->offset();
+  // printf("set bitmap offset %d\n",bitmap_offset);
+  // skip null field
   for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+    const FieldMeta *field = table_meta_.field(i + 1 + normal_field_start_index);
     const Value &value = values[i];
-    if(field->type()==DATES){
-        Date &date = Date::get_instance();
-        int date_int = date.date_to_int((const char*)value.data);
-        // if wrong date format
-        if(date_int < 0){
-          LOG_ERROR("Invalid date type. field name=%s, type=%d, but given=%d",
-          field->name(), field->type(), value.type);
-          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-        }else{
-          memcpy(record + field->offset(), &date_int, field->len());
-        }
+    // TODO memory leakage
+    char* buf = (char*)malloc(sizeof(char)*4);
+    Bitmap &bitmap = Bitmap::get_instance();
+    if(value.type == NULLS){
+      // TODO memory leakage
+      bitmap.set_bit_at_index_null(record+bitmap_offset, i + 1, buf);
     }else{
-      memcpy(record + field->offset(), value.data, field->len());
+      if(field->type()==DATES){
+          Date &date = Date::get_instance();
+          int date_int = date.date_to_int((const char*)value.data);
+          // if wrong date format
+          if(date_int < 0){
+            LOG_ERROR("Wrong date format Invalid date type. field name=%s, type=%d, but given=%d",
+            field->name(), field->type(), value.type);
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }else{
+            memcpy(record + field->offset(), &date_int, field->len());
+          }
+      }else{
+        memcpy(record + field->offset(), value.data, field->len());
+      }
+      bitmap.set_bit_at_index_not_null(record+bitmap_offset, i + 1, buf);
     }
+    memcpy(record+bitmap_offset, buf, 4);
   }
-
   record_out = record;
+  LOG_TRACE("exit make record");
   return RC::SUCCESS;
 }
 
@@ -798,6 +823,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     index = (BplusTreeIndex*)index;
+    // TODO no consider null
     if(index->index_meta().unique()){
       // TODO memory leakage
       char *buf = (char*)malloc(sizeof(char)*(index->get_field_len()));
@@ -811,7 +837,21 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
       }
     }
   }
+  int bitmap_offset = table_meta_.field(table_meta_.sys_field_num())->offset();
+  // printf("get bitmap offset %d\n",bitmap_offset);
   for (Index *index : indexes_) {
+    // TODO if null then not insert
+    if(index->field_nullable()==1){
+      // 1.get index of field in table 
+      // 2.get bitmap
+      // 3.get if it's null
+      // 4.continue if null
+      int ind = table_meta_.field_index(index->index_meta().field());
+      Bitmap &bitmap = Bitmap::get_instance();
+      if(bitmap.get_null_at_index(record+bitmap_offset, ind)==1){
+        continue;
+      }
+    }
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       break;

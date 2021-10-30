@@ -123,8 +123,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       if(date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      right.value = new int(date_int);
       // TODO memory leakage
+      right.value = new int(date_int);
       type_right = DATES;
     }else if(type_left==CHARS && type_right==DATES){
       Date &date = Date::get_instance();
@@ -132,9 +132,13 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       if (date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      left.value = new int(date_int);
       // TODO memory leakage
+      left.value = new int(date_int);
       type_left = DATES;
+    }else if (type_left==NULLS){
+      
+    }else if (type_right==NULLS){
+      
     }else{
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
@@ -184,20 +188,54 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     }
   }
 
-  switch (comp_op_) {
+  switch (comp_op_)
+  {
     case EQUAL_TO:
-      return 0 == cmp_result;
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return 0 == cmp_result;
+      }
     case LESS_EQUAL:
-      return cmp_result <= 0;
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return cmp_result <= 0;
+      }
     case NOT_EQUAL:
-      return cmp_result != 0;
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return cmp_result != 0;
+      }
     case LESS_THAN:
-      return cmp_result < 0;
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return cmp_result < 0;
+      }
     case GREAT_EQUAL:
-      return cmp_result >= 0;
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return cmp_result >= 0;
+      }
     case GREAT_THAN:
-      return cmp_result > 0;
-
+      if (left_value == NULL || right_value == NULL){
+        return false;
+      }
+      else{
+        return cmp_result > 0;
+      }
+    case IS_NULL:
+      return left_value == NULL && right_value == NULL;
+    case IS_NOT_NULL:
+      return left_value != NULL || right_value != NULL;
     default:
       break;
   }

@@ -106,6 +106,11 @@ ParserContext *get_context(yyscan_t scanner)
 		ORDER_BY
 		ASC
 		UNIQUEINDEX
+		ISNOTNULL
+		ISNULL
+		NULLABLE
+		NOTNULL
+		NULL_T
 
 %union {
   struct _Attr *attr;
@@ -114,7 +119,7 @@ ParserContext *get_context(yyscan_t scanner)
   char *string;
   int number;
   float floats;
-	char *position;
+  char *position;
 }
 
 %token <number> NUMBER
@@ -234,15 +239,23 @@ drop_index:			/*drop index 语句的语法解析树*/
 		}
     ;
 create_table:		/*create table 语句的语法解析树*/
-    CREATE TABLE ID LBRACE attr_def attr_def_list RBRACE SEMICOLON 
+    create_table_token ID LBRACE attr_def attr_def_list RBRACE SEMICOLON 
 		{
 			CONTEXT->ssql->flag=SCF_CREATE_TABLE;//"create_table";
 			// CONTEXT->ssql->sstr.create_table.attribute_count = CONTEXT->value_length;
-			create_table_init_name(&CONTEXT->ssql->sstr.create_table, $3);
+			create_table_init_name(&CONTEXT->ssql->sstr.create_table, $2);
 			//临时变量清零	
 			CONTEXT->value_length = 0;
 		}
     ;
+create_table_token:
+	CREATE TABLE{
+		AttrInfo attribute;
+		attr_info_init(&attribute, "null_field", BITMAPS, 4);
+		create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+		CONTEXT->value_length++;
+	};
+
 attr_def_list:
     /* empty */
     | COMMA attr_def attr_def_list {    }
@@ -260,6 +273,22 @@ attr_def:
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length = $4;
 			CONTEXT->value_length++;
 		}
+	|ID_get type NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init_with_null(&attribute, CONTEXT->id, $2, 4, 1);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    ;
+	|ID_get type NOTNULL
+		{
+			AttrInfo attribute;
+			attr_info_init_with_null(&attribute, CONTEXT->id, $2, 4, 0);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    ;
     |ID_get type
 		{
 			AttrInfo attribute;
@@ -288,7 +317,6 @@ ID_get:
 		snprintf(CONTEXT->id, sizeof(CONTEXT->id), "%s", temp);
 	}
 	;
-
 	
 insert:				/*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE SEMICOLON 
@@ -320,10 +348,8 @@ value:
     |FLOAT{
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
-	// TODO there is bug if string column input date format data
-	|DATE {
-		$1 = substr($1,1,strlen($1)-2);
-  		value_init_date(&CONTEXT->values[CONTEXT->value_length++], $1);
+	|NULL_T{
+		value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
 		}
     |SSS {
 		$1 = substr($1,1,strlen($1)-2);
@@ -686,6 +712,8 @@ comOp:
     | LE { CONTEXT->comp = LESS_EQUAL; }
     | GE { CONTEXT->comp = GREAT_EQUAL; }
     | NE { CONTEXT->comp = NOT_EQUAL; }
+	| ISNULL { CONTEXT->comp = IS_NULL; }
+	| ISNOTNULL { CONTEXT->comp = IS_NOT_NULL; }
     ;
 
 load_data:

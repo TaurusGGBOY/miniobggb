@@ -127,5 +127,23 @@ private:
   int value_;
 };
 
+class NullValue : public TupleValue {
+public:
+  explicit NullValue() {
+    value_= NULL;
+  }
+
+  void to_string(std::ostream &os) const override {
+    os << "null";
+  }
+
+  int compare(const TupleValue &other) const override {
+    return -1;
+  }
+
+private:
+  int value_;
+};
+
 
 #endif //__OBSERVER_SQL_EXECUTOR_VALUE_H_

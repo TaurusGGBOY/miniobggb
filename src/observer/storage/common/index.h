@@ -57,6 +57,10 @@ public:
     return field_meta_.len();
   }
 
+  int field_nullable(){
+    return field_meta_.nullable();
+  }
+
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
 
