@@ -80,7 +80,7 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
@@ -122,6 +122,19 @@ const FieldMeta * TableMeta::field(const char *name) const {
     }
   }
   return nullptr;
+}
+
+int TableMeta::field_index(const char *name) const {
+  if (nullptr == name) {
+    return -1;
+  }
+  for(int i = 1;i<fields_.size();i++){
+    const FieldMeta &field = fields_[i];
+    if (0 == strcmp(field.name(), name)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 const FieldMeta * TableMeta::find_field_by_offset(int offset) const {
