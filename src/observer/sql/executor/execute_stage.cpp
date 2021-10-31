@@ -510,9 +510,11 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
     LOG_DEBUG("print multi table tuple set");
     std::reverse(tuple_sets.begin(),tuple_sets.end());
     TupleSchema schema;
+    printf("1111\n");
     for(auto& t:tuple_sets) {
       schema.append(t.get_schema());
     }
+    printf("2222\n");
     std::vector<std::pair<int,int>> cond_record;
     while(true) {
       if(!check_multi_table_condition(schema,selects,cond_record)) {
@@ -561,8 +563,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       res_set.back().print_by_order(ss,print_order);
       break;
     }
-
-
+    printf("33333\n");
   } else {
     // 当前只查询一张表，直接返回结果即可
     if(order_tuples(selects,tuple_sets.front(),1)) {
