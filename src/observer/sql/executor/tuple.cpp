@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include <limits>
 #include <string>
 #include <regex>
+#include "storage/common/bitmap.h"
 
 
 Tuple::Tuple(const Tuple &other) {
@@ -63,6 +64,10 @@ void Tuple::add(const char *s, int len) {
 
 void Tuple::add_date(int value) {
   add(new DateValue(value));
+}
+
+void Tuple::add_null() {
+  add(new NullValue());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,6 +150,9 @@ void TupleSchema::print(std::ostream &os,bool table_name) const {
 
   for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
        iter != end; ++iter) {
+    if(strcmp("null_field", iter->field_name())== 0){
+      continue;
+    }
     if (table_name) {
       os << iter->table_name() << ".";
     }
@@ -262,9 +270,18 @@ void TupleRecordConverter::add_record(const char *record) {
   const TupleSchema &schema = tuple_set_.schema();
   Tuple tuple;
   const TableMeta &table_meta = table_->table_meta();
-  for (const TupleField &field : schema.fields()) {
+  Bitmap &bitmap = Bitmap::get_instance();
+  int bitmap_offset = table_meta.field("null_field")->offset();
+
+  for (int i = 0; i < schema.fields().size();i++) {
+    const TupleField &field = schema.fields()[i];
     const FieldMeta *field_meta = table_meta.field(field.field_name());
     assert(field_meta != nullptr);
+    // printf("field_name:%s\n", field.field_name());
+    if(bitmap.get_null_at_index(record+bitmap_offset, i)==1){
+      tuple.add_null();
+      continue;
+    }
     switch (field_meta->type()) {
       case INTS: {
         int value = *(int*)(record + field_meta->offset());

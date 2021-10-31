@@ -561,8 +561,6 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       res_set.back().print_by_order(ss,print_order);
       break;
     }
-
-
   } else {
     // 当前只查询一张表，直接返回结果即可
     if(order_tuples(selects,tuple_sets.front(),1)) {
