@@ -136,6 +136,9 @@ void TupleSchema::print(std::ostream &os,bool table_name) const {
 
   for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
        iter != end; ++iter) {
+    if(strcmp("null_field", iter->field_name())== 0){
+      continue;
+    }
     if (table_name) {
       os << iter->table_name() << ".";
     }
@@ -235,9 +238,9 @@ void TupleRecordConverter::add_record(const char *record) {
   Tuple tuple;
   const TableMeta &table_meta = table_->table_meta();
   Bitmap &bitmap = Bitmap::get_instance();
-  int bitmap_offset = table_meta.field(schema.fields()[0].field_name())->offset();
-  // skip null bitmap
-  for (int i = 1; i < schema.fields().size();i++) {
+  int bitmap_offset = table_meta.field("null_field")->offset();
+
+  for (int i = 0; i < schema.fields().size();i++) {
     const TupleField &field = schema.fields()[i];
     const FieldMeta *field_meta = table_meta.field(field.field_name());
     assert(field_meta != nullptr);
