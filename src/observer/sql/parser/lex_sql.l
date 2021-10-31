@@ -81,8 +81,8 @@ QUOTE            [\'\"]
 [Aa][Ss][Cc]                        						RETURN_TOKEN(ASC);
 [Oo][Rr][Dd][Ee][Rr][[:space:]][Bb][Yy]      				RETURN_TOKEN(ORDER_BY);
 [Uu][Nn][Ii][Qq][Uu][Ee][[:space:]][Ii][Nn][Dd][Ee][Xx]     RETURN_TOKEN(UNIQUEINDEX);
-[Ii][Ss][[:space:]][Nn][Oo][Tt][[:space:]][Nn][Uu][Ll][Ll]  RETURN_TOKEN(ISNOTNULL);
-[Ii][Ss][[:space:]][Nn][Uu][Ll][Ll]    		 				RETURN_TOKEN(ISNULL);
+[Ii][Ss][[:space:]][Nn][Oo][Tt]  							RETURN_TOKEN(ISNOTNULL);
+[Ii][Ss]  		 											RETURN_TOKEN(ISNULL);
 [Nn][Oo][Tt][[:space:]][Nn][Uu][Ll][Ll]      				RETURN_TOKEN(NOTNULL);
 [Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]      		 				RETURN_TOKEN(NULLABLE);
 [Nn][Uu][Ll][Ll]     		 								RETURN_TOKEN(NULL_T);

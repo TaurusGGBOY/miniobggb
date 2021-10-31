@@ -5,16 +5,16 @@ void Bitmap::set_bit_at_index(const char *bitmap, int index, int is_null, char *
 {
     // trx field as the first
     int value = *(int*)(bitmap);
-    // printf("set input value:%d, index:%d, isnull:%d\n", value, index, is_null);
-    // tostring(bitmap);
+    printf("set input value:%d, index:%d, isnull:%d\n", value, index, is_null);
+    tostring(bitmap);
     if(is_null){
         value = value | 1 <<index;
     }else{
         value = value & ~(1 <<index);
     }
     memcpy(buf, &value, 4);  
-    // printf("set output value:%d\n", *(int*)buf);
-    // tostring(buf);
+    printf("set output value:%d\n", *(int*)buf);
+    tostring(buf);
 }
 
 void Bitmap::set_bit_at_index_null(const char *bitmap, int index, char *buf)
@@ -29,8 +29,8 @@ void Bitmap::set_bit_at_index_not_null(const char *bitmap, int index, char *buf)
 int Bitmap::get_null_at_index(const char *bitmap, int index)
 {
     int value = *(int*)(bitmap);
-    // printf("get input value:%d, index:%d\n", value, index);
-    // tostring(bitmap);
+    printf("get input value:%d, index:%d\n", value, index);
+    tostring(bitmap);
     return value>>index & 1;
 }
 void Bitmap::tostring(const char* bitmap){
