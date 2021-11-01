@@ -134,7 +134,7 @@ int TableMeta::field_index(const char *name) const {
   if (nullptr == name) {
     return -1;
   }
-  for(int i = 1;i<fields_.size();i++){
+  for(int i = 2;i<fields_.size();i++){
     const FieldMeta &field = fields_[i];
     if (0 == strcmp(field.name(), name)) {
       return i;

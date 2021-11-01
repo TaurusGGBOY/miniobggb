@@ -169,12 +169,14 @@ void DefaultStorageStage::handle_event(StageEvent *event) {
     }
     break;
   case SCF_UPDATE: {
+    printf("enter update\n");
       const Updates &updates = sql->sstr.update;
       const char *table_name = updates.relation_name;
       const char *field_name = updates.attribute_name;
       int updated_count = 0;
       rc = handler_->update_record(current_trx, current_db, table_name, field_name, &updates.value,
                                    updates.condition_num, updates.conditions, &updated_count);
+      printf("default stage: %s",rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
       snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
     }
     break;

@@ -217,7 +217,6 @@ RC Table::rollback_insert(Trx *trx, const RID &rid) {
 
 RC Table::insert_record(Trx *trx, Record *record) {
   RC rc = RC::SUCCESS;
-
   if (trx != nullptr) {
     trx->init_trx_info(this, *record);
   }
@@ -240,7 +239,6 @@ RC Table::insert_record(Trx *trx, Record *record) {
       return rc;
     }
   }
-
   rc = insert_entry_of_indexes(record->data, record->rid);
   if (rc != RC::SUCCESS) {
     RC rc2 = delete_entry_of_indexes(record->data, record->rid, true);
@@ -258,6 +256,7 @@ RC Table::insert_record(Trx *trx, Record *record) {
   return rc;
 }
 RC Table::insert_record(Trx *trx, int value_num, const Value *values) {
+  LOG_TRACE("enter");
   if (value_num <= 0 || nullptr == values ) {
     LOG_ERROR("Invalid argument. value num=%d, values=%p", value_num, values);
     return RC::INVALID_ARGUMENT;
@@ -281,6 +280,7 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values) {
     trx->rollback();
   }
   delete[] record_data;
+  LOG_TRACE("exit");
   return rc;
 }
 
@@ -309,7 +309,7 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
     // TODO may be wrong in compare NULL
     if(value.type == NULLS){
       if(field->nullable()==0){
-         LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=NULL",
+         LOG_ERROR("Can't be null. field name=%s, type=%d, but given=NULL",
           field->name(), field->type());
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
@@ -328,19 +328,23 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record = new char [record_size];
-  int bitmap_offset = table_meta_.field(normal_field_start_index)->offset();
+  memset(record,0,record_size);
+  const FieldMeta * null_field = table_meta_.field("null_field");
+  int bitmap_offset = null_field->offset();
+  int bitmap_len = null_field->len();
+  Bitmap &bitmap = Bitmap::get_instance();
+  char buf[bitmap_len];
   // printf("set bitmap offset %d\n",bitmap_offset);
-  // skip null field
+  // printf("normal_field_start_index %d\n",normal_field_start_index);
   for (int i = 0; i < value_num; i++) {
+    // skip null field
     const FieldMeta *field = table_meta_.field(i + 1 + normal_field_start_index);
     const Value &value = values[i];
     // TODO memory leakage
-    char* buf = (char*)malloc(sizeof(char)*4);
-    Bitmap &bitmap = Bitmap::get_instance();
     if(value.type == NULLS){
-      // TODO memory leakage
-      bitmap.set_bit_at_index_null(record+bitmap_offset, i + 1, buf);
+      bitmap.set_bit_at_index_null(record+bitmap_offset, i, buf);
     }else{
+      bitmap.set_bit_at_index_not_null(record+bitmap_offset, i, buf);
       if(field->type()==DATES){
           Date &date = Date::get_instance();
           int date_int = date.date_to_int((const char*)value.data);
@@ -355,9 +359,8 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
       }else{
         memcpy(record + field->offset(), value.data, field->len());
       }
-      bitmap.set_bit_at_index_not_null(record+bitmap_offset, i + 1, buf);
     }
-    memcpy(record+bitmap_offset, buf, 4);
+    memcpy(record+bitmap_offset, buf, bitmap_len);
   }
   record_out = record;
   LOG_TRACE("exit make record");
@@ -417,6 +420,7 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *contex
 }
 
 RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *context, RC (*record_reader)(Record *record, void *context)) {
+  LOG_TRACE("enter");
   if (nullptr == record_reader) {
     return RC::INVALID_ARGUMENT;
   }
@@ -461,6 +465,7 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *contex
     LOG_ERROR("failed to scan record. file id=%d, rc=%d:%s", file_id_, rc, strrc(rc));
   }
   scanner.close_scan();
+  LOG_TRACE("exit");
   return rc;
 }
 
@@ -648,12 +653,26 @@ class RecordUpdater{
     if(field_ ==nullptr)
       return RC::SCHEMA_FIELD_NOT_EXIST;
     if(field_->type()!=value_->type){
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      printf("field type:%d, value type:%d\n",(int)field_->type(), (int)value_->type);
+      if(value_->type==NULLS){
+        if(field_->nullable()==0){
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
+        }else{
+          return RC::SUCCESS;
+        }
+      }else{
+        if(field_->type()==DATES && value_->type){
+          return RC::SUCCESS;
+        }else{
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
+        }
+      }
     }
     return RC::SUCCESS;
   }
 
   RC update_record(Record* rec){
+    LOG_TRACE("enter");
     RC rc = RC::SUCCESS;
     bool need_rollback = false;
     rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
@@ -663,17 +682,38 @@ class RecordUpdater{
 
     //将value的值复制到对应的偏移量处
     // if dates then save int rather char
-    if(field_->type()==DATES){
-      Date &date = Date::get_instance();
-      int date_int = date.date_to_int((const char*)value_->data);
-      if(date_int < 0){
-        LOG_ERROR("wrong date format");
-        return RC::SCHEMA_FIELD_NOT_EXIST;
+    TableMeta table_meta = table_.table_meta_;
+    const FieldMeta *null_field = table_meta.field("null_field");
+    int bitmap_offset = null_field->offset();
+    int bitmap_len = null_field->len();
+
+    Bitmap &bitmap = Bitmap::get_instance();
+    char buf[bitmap_len];
+    int ind = table_meta.field_index(field_->name());
+
+    if(value_->type==NULLS){
+      printf("value set null\n");
+      if(field_->nullable()==1){
+        bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,1, buf);
+      }else{
+        LOG_ERROR("can't update null");
+          return RC::SCHEMA_FIELD_NOT_EXIST;
       }
-      memcpy(rec->data + field_->offset(), &date_int, field_->len());
     }else{
-      memcpy(rec->data + field_->offset(), value_->data, field_->len());
+      bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,0, buf);
+      if(field_->type()==DATES){
+        Date &date = Date::get_instance();
+        int date_int = date.date_to_int((const char*)value_->data);
+        if(date_int < 0){
+          LOG_ERROR("wrong date format");
+          return RC::SCHEMA_FIELD_NOT_EXIST;
+        }
+        memcpy(rec->data + field_->offset(), &date_int, field_->len());
+      }else{
+        memcpy(rec->data + field_->offset(), value_->data, field_->len());
+      }
     }
+    memcpy(rec->data + bitmap_offset, buf, bitmap_len);
     
     if(rc!=RC::SUCCESS){
       //update索引
@@ -685,7 +725,6 @@ class RecordUpdater{
       need_rollback = true;
       table_.insert_entry_of_indexes(rec->data,rec->rid);
     }
-    
     rc = table_.update_record(trx_,rec);
     if(rc!=RC::SUCCESS){
       if(need_rollback){
@@ -695,6 +734,7 @@ class RecordUpdater{
     }else{
       update_count_++;
     }
+    LOG_TRACE("exit");
     return rc;
   }
   
@@ -720,11 +760,16 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   RecordUpdater updater(*this,trx,value);
   RC rc = updater.set_field(attribute_name);
   if(rc!=RC::SUCCESS){
+    printf("mismatch\n");
     return rc;
   }
+  printf("success match\n");
   rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
   if(update_count!=nullptr){
     *update_count = updater.update_count();
+    printf("update count:%d\n", updater.update_count());
+  }else{
+    printf("update no count\n");
   }
 
   return rc;
@@ -843,7 +888,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
       }
     }
   }
-  int bitmap_offset = table_meta_.field(table_meta_.sys_field_num())->offset();
+  int bitmap_offset = table_meta_.field("null_field")->offset();
   // printf("get bitmap offset %d\n",bitmap_offset);
   for (Index *index : indexes_) {
     // TODO if null then not insert
@@ -854,7 +899,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
       // 4.continue if null
       int ind = table_meta_.field_index(index->index_meta().field());
       Bitmap &bitmap = Bitmap::get_instance();
-      if(bitmap.get_null_at_index(record+bitmap_offset, ind)==1){
+      if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
         continue;
       }
     }
@@ -923,6 +968,8 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
 }
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
+  // TODO temp no index
+  return nullptr;
   if (nullptr == filter) {
     return nullptr;
   }
