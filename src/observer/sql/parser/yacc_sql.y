@@ -410,7 +410,7 @@ select:				/*  select 语句的语法解析树*/
 		CONTEXT->condition_length = 0;
 	}
 	
-	| SELECT select_attr FROM ID inner_join  on_list where order SEMICOLON {
+	| SELECT select_attr FROM ID inner_join where order SEMICOLON {
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
@@ -444,15 +444,15 @@ select:				/*  select 语句的语法解析树*/
 			}
 	;
 
-on_list:
-    | ON condition condition_list {
-
+inner_join:
+    | INNER_JOIN ID on_list inner_join {
+        selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
     }
     ;
 
-inner_join:
-    | INNER_JOIN ID inner_join {
-        selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+on_list:
+    | ON condition condition_list {
+
     }
     ;
 
