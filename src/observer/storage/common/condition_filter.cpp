@@ -59,17 +59,12 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
   right_ = right;
   attr_type_ = attr_type;
   comp_op_ = comp_op;
-  printf("return success\n");
   return RC::SUCCESS;
 }
 
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
   LOG_TRACE("enter");
-  if(condition.left_attr.attribute_name==nullptr||condition.right_value.data==nullptr){
-    printf("get a null\n");
-  }
-  printf("left right %s, %d\n", condition.left_attr.attribute_name, (int)condition.right_value.type);
   const TableMeta &table_meta = table.table_meta();
   ConDesc left;
   ConDesc right;
@@ -128,7 +123,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   // TODO NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
   // 但是选手们还是要实现。这个功能在预选赛中会出现
   if (type_left != type_right) {
-    printf("diff type\n");
     if(type_left == DATES && type_right ==CHARS){
       Date &date = Date::get_instance();
       int date_int = date.date_to_int((const char*)condition.right_value.data);
@@ -302,24 +296,8 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         return cmp_result > 0;
       }
     case IS_NULL:
-      if(left_value==nullptr)
-        printf("isnot:left is null\n");
-      else
-        printf("isnot:left is not null\n");
-      if(right_value==nullptr)
-        printf("isnot:right is null\n");
-      else
-        printf("isnot:right is not null\n");
       return left_value == nullptr && right_value == nullptr;
     case IS_NOT_NULL:
-      if(left_value==nullptr)
-        printf("isnot:left is null\n");
-      else
-        printf("isnot:left is not null\n");
-      if(right_value==nullptr)
-        printf("isnot:right is null\n");
-      else
-        printf("isnot:right is not null\n");
       return left_value != nullptr  || right_value != nullptr;
     default:
       break;

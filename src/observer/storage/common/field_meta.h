@@ -37,7 +37,7 @@ public:
   int         offset() const;
   int         len() const;
   bool        visible() const;
-  int nullable() const;
+  int         nullable() const;
 
 public:
   void desc(std::ostream &os) const;
@@ -51,6 +51,6 @@ private:
   int          attr_offset_;
   int          attr_len_;
   bool         visible_;
-  int nullable_;
+  int          nullable_;
 };
 #endif // __OBSERVER_STORAGE_COMMON_FIELD_META_H__

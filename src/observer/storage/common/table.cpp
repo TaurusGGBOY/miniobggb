@@ -653,7 +653,7 @@ class RecordUpdater{
     if(field_ ==nullptr)
       return RC::SCHEMA_FIELD_NOT_EXIST;
     if(field_->type()!=value_->type){
-      printf("field type:%d, value type:%d\n",(int)field_->type(), (int)value_->type);
+      // printf("field type:%d, value type:%d\n",(int)field_->type(), (int)value_->type);
       if(value_->type==NULLS){
         if(field_->nullable()==0){
           return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
@@ -692,7 +692,6 @@ class RecordUpdater{
     int ind = table_meta.field_index(field_->name());
 
     if(value_->type==NULLS){
-      printf("value set null\n");
       if(field_->nullable()==1){
         bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,1, buf);
       }else{
@@ -760,16 +759,12 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   RecordUpdater updater(*this,trx,value);
   RC rc = updater.set_field(attribute_name);
   if(rc!=RC::SUCCESS){
-    printf("mismatch\n");
+    LOG_DEBUG("mismatch\n");
     return rc;
   }
-  printf("success match\n");
   rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
   if(update_count!=nullptr){
     *update_count = updater.update_count();
-    printf("update count:%d\n", updater.update_count());
-  }else{
-    printf("update no count\n");
   }
 
   return rc;
@@ -1010,4 +1005,8 @@ RC Table::sync() {
   }
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
+}
+
+int Table::null_offset(){
+  return table_meta_.field("null_field")->offset();
 }

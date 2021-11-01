@@ -189,7 +189,7 @@ RC DefaultHandler::update_record(Trx *trx, const char *dbname, const char *relat
   RC rc = condition_filter.init(*table,conditions,condition_num);
 
   if(rc !=RC::SUCCESS){
-    printf("init fail\n");
+    LOG_DEBUG("init fail\n");
     return rc;
   }
   return table->update_record(trx, attribute_name, value, &condition_filter, updated_count);

@@ -360,12 +360,20 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
     }
     field_.push_back({fm,agg_field[i].aggregation_type});
     if(agg_field[i].aggregation_type == ATF_COUNT){
-      value_.push_back(nullptr);
+      value_.push_back(new int(0));
       schema.add(INTS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
       continue;
     }
     else if(agg_field[i].aggregation_type == ATF_AVG){
+      std::pair<void*, int> *p;
+      if(fm->type()==FLOATS){
+        p = new std::pair<void*, int>(new float(0) ,0);
+      }else{
+        p = new std::pair<void*, int>(new int(0) ,0);
+      }
+      value_.push_back(p);
       schema.add(FLOATS,table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
+      continue;
     }
     else{
       schema.add(fm->type(),table_.name(),schema_field_name(agg_field[i].attribute_name,agg_field[i].aggregation_type).c_str());
@@ -409,7 +417,6 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
         value_.push_back(nullptr);
       break;
     }  
-
   }
   if(value_.size()!=field_.size()){
     LOG_ERROR("Get %d values and %d field",value_.size(),field_.size());
@@ -429,9 +436,20 @@ void str_set_cmp(void*& target, void*& value, bool is_max){
 RC RecordAggregater::update_record(Record* rec){
   LOG_TRACE("Enter");
   rec_count++;
+  Bitmap &bitmap = Bitmap::get_instance();
+  int bitmap_offset = table_.null_offset();
   for(int i=0;i!=field_.size();i++){
     if(value_[i]==nullptr){
       //不支持的类型
+      continue;
+    }
+    // count(*)
+    if(field_[i].first == nullptr){
+      continue;
+    }
+    TableMeta &table_meta = table_.table_meta_;
+    int ind = table_meta.field_index(field_[i].first->name());
+    if (bitmap.get_null_at_index(rec->data + bitmap_offset, ind - 2) == 1){
       continue;
     }
     void* field_data = malloc(sizeof(char)*field_[i].first->len());
@@ -480,16 +498,36 @@ RC RecordAggregater::update_record(Record* rec){
       }
       break;
     case ATF_SUM:
+    {
+      switch (field_[i].first->type())
+        {
+        case INTS:
+        case DATES:
+          *(int*)value_[i] += *(int*)field_data;
+          break;
+        case FLOATS:
+          *(float*)value_[i] += *(float*)field_data;
+          break;
+        default:
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          break;
+        }
+    }
+    break;
     case ATF_AVG:
       {
+        std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+        p->second++;
         switch (field_[i].first->type())
         {
         case INTS:
         case DATES:
-          *(int*)value_[i] +=*(int*)field_data;
+          *(int*)p->first +=*(int*)field_data;
           break;
         case FLOATS:
-          *(float*)value_[i] +=*(float*)field_data;
+          if(p->first==nullptr){
+          }
+          *(float*)p->first +=*(float*)field_data;
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -497,6 +535,11 @@ RC RecordAggregater::update_record(Record* rec){
         }
       }
       break;
+    case ATF_COUNT:
+    {
+      *(int*)value_[i] = *(int*)value_[i] + 1;
+    }
+    break;
 
     default:
       break;
@@ -518,17 +561,19 @@ RC RecordAggregater::get_condition_value(Value* conditionvalue){
     }
     break;
   case ATF_AVG:{
+    std::pair<void*, int>* p = (std::pair<void*, int> *)value_[0];
+    int not_null_count = p->second;
     conditionvalue->type = FLOATS;
     conditionvalue->data = new float;
     if(rec_count==0){
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }else{
       if(field_[0].first->type() == INTS)
-        *((float*)conditionvalue->data) = (float)*(int*)value_[0]/(float)rec_count;
+        *((float*)conditionvalue->data) = (float)*(int*)p->first/(float)not_null_count;
       else if(field_[0].first->type() == FLOATS)
-        *((float*)conditionvalue->data) = *(float*)value_[0]/(float)rec_count;
+        *((float*)conditionvalue->data) = *(float*)p->first/(float)not_null_count;
       else if(field_[0].first->type() == DATES)
-        *((int*)conditionvalue->data) = *(int*)value_[0]/rec_count;
+        *((int*)conditionvalue->data) = *(int*)p->first/not_null_count;
       else
         return RC::SCHEMA_FIELD_NOT_EXIST;
     }
@@ -562,22 +607,28 @@ void RecordAggregater::agg_done(){
     switch (field_[i].second)
     {
     case ATF_COUNT:{
-      tuple.add(rec_count);
+        if(field_[i].first==nullptr){
+          tuple.add(rec_count);
+        }else{
+          tuple.add(*(int*)value_[i]);
+        }
       }
       break;
     case ATF_AVG:{
-      if(rec_count==0){
+      std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+      int not_null_count = p->second;
+      if(not_null_count==0){
         // float *ans = new float((float)*(int*)value_[i]/(float)rec_count);
         // free(value_[i]);
         // value_[i] = ans;
         tuple.add(-1);
       }else{
         if(field_[i].first->type() == INTS)
-          tuple.add((float)*(int*)value_[i]/(float)rec_count);
+          tuple.add((float)*(int*)p->first/(float)not_null_count);
         else if(field_[i].first->type() == FLOATS)
-          tuple.add(*(float*)value_[i]/(float)rec_count);
+          tuple.add(*(float*)p->first/(float)not_null_count);
         else if(field_[i].first->type() == DATES)
-          tuple.add_date(*(int*)value_[i]/rec_count);
+          tuple.add_date(*(int*)p->first/not_null_count);
         else
           tuple.add(-1);
       }
