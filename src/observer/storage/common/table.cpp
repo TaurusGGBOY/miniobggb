@@ -309,7 +309,7 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
     // TODO may be wrong in compare NULL
     if(value.type == NULLS){
       if(field->nullable()==0){
-         LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=NULL",
+         LOG_ERROR("Can't be null. field name=%s, type=%d, but given=NULL",
           field->name(), field->type());
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
@@ -328,7 +328,12 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record = new char [record_size];
-  int bitmap_offset = table_meta_.field(normal_field_start_index)->offset();
+  memset(record,0,record_size);
+  const FieldMeta * null_field = table_meta_.field("null_field");
+  int bitmap_offset = null_field->offset();
+  int bitmap_len = null_field->len();
+  Bitmap &bitmap = Bitmap::get_instance();
+  char buf[bitmap_len];
   // printf("set bitmap offset %d\n",bitmap_offset);
   // printf("normal_field_start_index %d\n",normal_field_start_index);
   for (int i = 0; i < value_num; i++) {
@@ -336,12 +341,10 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
     const FieldMeta *field = table_meta_.field(i + 1 + normal_field_start_index);
     const Value &value = values[i];
     // TODO memory leakage
-    char* buf = (char*)malloc(sizeof(char)*4);
-    Bitmap &bitmap = Bitmap::get_instance();
     if(value.type == NULLS){
-      // TODO memory leakage
       bitmap.set_bit_at_index_null(record+bitmap_offset, i, buf);
     }else{
+      bitmap.set_bit_at_index_not_null(record+bitmap_offset, i, buf);
       if(field->type()==DATES){
           Date &date = Date::get_instance();
           int date_int = date.date_to_int((const char*)value.data);
@@ -356,9 +359,8 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
       }else{
         memcpy(record + field->offset(), value.data, field->len());
       }
-      bitmap.set_bit_at_index_not_null(record+bitmap_offset, i, buf);
     }
-    memcpy(record+bitmap_offset, buf, 4);
+    memcpy(record+bitmap_offset, buf, bitmap_len);
   }
   record_out = record;
   LOG_TRACE("exit make record");
@@ -651,7 +653,20 @@ class RecordUpdater{
     if(field_ ==nullptr)
       return RC::SCHEMA_FIELD_NOT_EXIST;
     if(field_->type()!=value_->type){
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      printf("field type:%d, value type:%d\n",(int)field_->type(), (int)value_->type);
+      if(value_->type==NULLS){
+        if(field_->nullable()==0){
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
+        }else{
+          return RC::SUCCESS;
+        }
+      }else{
+        if(field_->type()==DATES && value_->type){
+          return RC::SUCCESS;
+        }else{
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
+        }
+      }
     }
     return RC::SUCCESS;
   }
@@ -667,15 +682,23 @@ class RecordUpdater{
 
     //将value的值复制到对应的偏移量处
     // if dates then save int rather char
-    Bitmap &bitmap = Bitmap::get_instance();
-    char buf[4];
     TableMeta table_meta = table_.table_meta_;
-    const FieldMeta *offset_field = table_meta.field("null_field");
-    int bitmap_offset = offset_field->offset();
+    const FieldMeta *null_field = table_meta.field("null_field");
+    int bitmap_offset = null_field->offset();
+    int bitmap_len = null_field->len();
+
+    Bitmap &bitmap = Bitmap::get_instance();
+    char buf[bitmap_len];
     int ind = table_meta.field_index(field_->name());
 
     if(value_->type==NULLS){
-      bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,1, buf);
+      printf("value set null\n");
+      if(field_->nullable()==1){
+        bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,1, buf);
+      }else{
+        LOG_ERROR("can't update null");
+          return RC::SCHEMA_FIELD_NOT_EXIST;
+      }
     }else{
       bitmap.set_bit_at_index(rec->data+bitmap_offset,ind-2,0, buf);
       if(field_->type()==DATES){
@@ -690,7 +713,7 @@ class RecordUpdater{
         memcpy(rec->data + field_->offset(), value_->data, field_->len());
       }
     }
-    memcpy(rec->data + bitmap_offset, buf, offset_field->len());
+    memcpy(rec->data + bitmap_offset, buf, bitmap_len);
     
     if(rc!=RC::SUCCESS){
       //update索引
@@ -737,11 +760,16 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   RecordUpdater updater(*this,trx,value);
   RC rc = updater.set_field(attribute_name);
   if(rc!=RC::SUCCESS){
+    printf("mismatch\n");
     return rc;
   }
+  printf("success match\n");
   rc = scan_record(trx,filter,-1,&updater,record_reader_update_adapter);
   if(update_count!=nullptr){
     *update_count = updater.update_count();
+    printf("update count:%d\n", updater.update_count());
+  }else{
+    printf("update no count\n");
   }
 
   return rc;
