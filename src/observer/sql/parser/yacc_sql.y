@@ -26,7 +26,7 @@ typedef struct ParserContext {
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
   CompOp comp[MAX_NUM];
-  int comp_length;
+  size_t comp_length;
 	char id[MAX_NUM];
 } ParserContext;
 
@@ -446,7 +446,8 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
-			}
+			//printf("Sub select length is %d\n",CONTEXT->sub_selects_length);
+			} 
 	;
 
 inner_join:
@@ -591,6 +592,7 @@ subselect:
 		aggregates_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],$3,
 					CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length], 
 					CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
+		//printf("Condition start at %d\n",CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 	}
 	|sub_select_attr FROM ID sub_rel_list where
 		{	
@@ -705,7 +707,7 @@ condition:
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
 		//TODO for memory leakage
-		//现在的问题是destroy会把子查询的子查询destroy了，需要实现一个专门的不destroy子查询的函数
+		//destroy会把子查询的子查询destroy了，需要实现一个不destroy子查询的函数
 		//aggregates_destroy(right_agg_value);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;

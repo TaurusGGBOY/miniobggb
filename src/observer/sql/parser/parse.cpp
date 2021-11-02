@@ -104,7 +104,10 @@ void condition_init(Condition *condition, CompOp comp,
                     int left_is_attr, RelAttr *left_attr, Value *left_value,
                     int right_is_attr, RelAttr *right_attr, Value *right_value,
                     Aggregates* agg_left, Aggregates* agg_right) {
-  LOG_TRACE("init_condition");
+  //传入的condition的空间已经被使用过，所以需要保证每一个成员都被赋值
+  condition->left_agg_value=nullptr;
+  condition->right_agg_value=nullptr;
+
   condition->comp = comp;
   condition->left_is_attr = left_is_attr;
   if (left_is_attr) {
