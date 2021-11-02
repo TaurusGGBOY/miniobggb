@@ -118,11 +118,13 @@ typedef struct _Condition {
                        // 1时，操作符左边是属性名，0时，是属性值
   Value left_value;    // left-hand side value if left_is_attr = FALSE
   RelAttr left_attr;   // left-hand side attribute
+  struct _Aggregates* left_agg_value;
   CompOp comp;         // comparison operator
   int right_is_attr;   // TRUE if right-hand side is an attribute
                        // 1时，操作符右边是属性名，0时，是属性值
   RelAttr right_attr;  // right-hand side attribute if right_is_attr = TRUE 右边的属性
   Value right_value;   // right-hand side value if right_is_attr = FALSE
+  struct _Aggregates* right_agg_value;
 } Condition;
 
 // struct of select
@@ -218,7 +220,7 @@ typedef struct{
   enum AggregationTypeFlag aggregation_type;
 }AggregatesField;
 
-typedef struct{
+typedef struct _Aggregates{
   AggregatesField field[MAX_NUM];
   int field_num;
   char* relation_name;
@@ -240,6 +242,7 @@ union Queries {
   Aggregates aggregation;
   char *errors;
 };
+typedef union Queries SubQuries;
 
 // 修改yacc中相关数字编码为宏定义
 enum SqlCommandFlag {
@@ -282,14 +285,16 @@ void value_init_integer(Value *value, int v);
 void value_init_float(Value *value, float v);
 void value_init_string(Value *value, const char *v);
 void value_init_date(Value *value, const char *v);
+void value_copy(Value* target, Value* object);
 void value_destroy(Value *value);
 
-void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
-    int right_is_attr, RelAttr *right_attr, Value *right_value);
+void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value, int right_is_attr, RelAttr *right_attr, Value *right_value, Aggregates* agg_left,Aggregates* agg_right);
+void condition_copy(Condition *target, Condition* object);
 void condition_destroy(Condition *condition);
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
+void relattr_copy(RelAttr* target,RelAttr* object);
 
 void selects_init(Selects *selects, ...);
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr);
@@ -310,6 +315,7 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
 void updates_destroy(Updates *updates);
 
 void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition conditions[], size_t condition_num);
+void aggregates_copy_init(Aggregates* target,Aggregates* object);
 void aggregates_destroy(Aggregates *aggregates);
 void aggregates_append_field_itoa(Aggregates *aggregates,int number,const char* type_name);
 void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);

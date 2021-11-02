@@ -464,6 +464,15 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
   RC rc = RC::SUCCESS;
   Session *session = session_event->get_client()->session;
   Trx *trx = session->current_trx();
+
+  //处理子查询
+  Selects* _select= &sql->sstr.selection;
+  ConditionSubQueryhandler subhandler(db,session->current_trx());
+  rc = subhandler.check_main_query(_select->conditions,_select->condition_num);
+  if(rc!=RC::SUCCESS)
+    return rc;
+
+
   const Selects &selects = sql->sstr.selection;
   // 把所有的表和只跟这张表关联的condition都拿出来，生成最底层的select 执行节点
   std::vector<SelectExeNode *> select_nodes;
@@ -619,6 +628,12 @@ RC aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag fl
 RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session_event){
   Session *session = session_event->get_client()->session;
   Trx *trx = session->current_trx();
+  //处理子查询
+  Aggregates* _aggregate= &sql->sstr.aggregation;
+  ConditionSubQueryhandler subhandler(db,session->current_trx());
+  RC rc = subhandler.check_main_query(_aggregate->conditions,_aggregate->condition_num);
+  if(rc!=RC::SUCCESS)
+    return rc;
   const Aggregates &aggregates = sql->sstr.aggregation;
   char* table_name = sql->sstr.aggregation.relation_name;
   Table* table = DefaultHandler::get_default().find_table(db,table_name);
@@ -639,7 +654,7 @@ RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session
             match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name) && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name)) // 左右都是属性名，并且表名都符合
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
-      RC rc = condition_filter->init(*table, condition);
+      rc = condition_filter->init(*table, condition);
       if (rc != RC::SUCCESS) {
         delete condition_filter;
         session_event->set_response("FAILURE\n");
@@ -656,7 +671,7 @@ RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session
   filter.init((const ConditionFilter **)condition_filters.data(), condition_filters.size());
 
   RecordAggregater aggregater(*table);
-  RC rc = aggregater.set_field(aggregates.field,aggregates.field_num);
+  rc = aggregater.set_field(aggregates.field,aggregates.field_num);
   if(rc!=RC::SUCCESS){
     session_event->set_response("FAILURE\n");
     return rc;

@@ -171,6 +171,9 @@ enum RCNotice {
 enum RCAuth {
   USER = 1,
 };
+enum RCSubQuery{
+
+};
 
 enum RC {
 
@@ -207,6 +210,7 @@ enum RC {
   RANGE,         /* 2nd parameter to bind out of range */
   NOTADB,        /* File opened that is not a database file */
   NOTICE = 100,  /* Notifications from log() */
+  SUBQUERY,
 
   /* buffer pool part */
   BUFFERPOOL_EXIST = (BUFFERPOOL | (RCBufferPool::BP_EXIST << 8)),
