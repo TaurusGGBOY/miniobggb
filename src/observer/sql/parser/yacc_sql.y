@@ -607,6 +607,9 @@ sub_agg_field:
 	AGGREGATE LBRACE ID RBRACE {
 		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$1);
 	}
+	| AGGREGATE LBRACE ID DOT ID RBRACE{
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$5,$1);
+	}
 	| AGGREGATE LBRACE STAR RBRACE {
 		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,"*",$1);
 	}
