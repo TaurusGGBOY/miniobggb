@@ -17,11 +17,16 @@ typedef struct ParserContext {
   size_t from_length;
   size_t value_length;
   size_t values_size;
+  size_t sub_selects_length;
+  //sub_selects和sub_condtion_length是一个栈
+  SubQuries sub_selects[10];
+  size_t sub_condition_length[10];
   Value values_list[MAX_NUM][MAX_NUM];
   size_t values_length_list[MAX_NUM];
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
-  CompOp comp;
+  CompOp comp[MAX_NUM];
+  int comp_length;
 	char id[MAX_NUM];
 } ParserContext;
 
@@ -571,6 +576,62 @@ select_attr:
 	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	    }
     ;
+subselect_start:
+	LBRACE SELECT
+	{
+		//将condition的值存入，入栈
+		CONTEXT->sub_selects_length++;
+		CONTEXT->sub_condition_length[CONTEXT->sub_selects_length] = CONTEXT->condition_length;
+	}
+	;
+
+subselect:
+	sub_agg_field FROM ID where
+		{
+		aggregates_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],$3,
+					CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length], 
+					CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
+	}
+	|sub_select_attr FROM ID sub_rel_list where
+		{	
+			selects_append_relation(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, $3);
+			selects_append_conditions(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, 
+						CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length],
+						CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
+		}
+
+	;
+sub_agg_field:
+	AGGREGATE LBRACE ID RBRACE {
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$1);
+	}
+	| AGGREGATE LBRACE STAR RBRACE {
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,"*",$1);
+	}
+	| AGGREGATE LBRACE NUMBER RBRACE {
+		aggregates_append_field_itoa(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$1);
+	}
+
+	;
+/*子查询只支持单字段*/
+sub_select_attr:
+    ID {
+			RelAttr attr;
+			relation_attr_init(&attr, NULL, $1);
+			selects_append_attribute(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, &attr);
+		}
+  	| ID DOT ID {
+			RelAttr attr;
+			relation_attr_init(&attr, $1, $3);
+			selects_append_attribute(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, &attr);
+		}
+    ;
+
+sub_rel_list:
+    COMMA ID {	
+				selects_append_relation(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, $2);
+		  }
+	;
 attr_list:
     /* empty */
     | COMMA ID attr_list {
@@ -614,14 +675,14 @@ condition_list:
     ;
 condition:
     ID comOp value 
-		{
+		{	
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, NULL, $1);
 
 			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, right_value,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// $$ = ( Condition *)malloc(sizeof( Condition));
 			// $$->left_is_attr = 1;
@@ -634,13 +695,65 @@ condition:
 			// $$->right_value = *$3;
 
 		}
+    |ID comOp subselect_start subselect RBRACE
+	{
+		//出栈
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr left_attr;
+		relation_attr_init(&left_attr, NULL, $1);
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
+		//TODO for memory leakage
+		//现在的问题是destroy会把子查询的子查询destroy了，需要实现一个专门的不destroy子查询的函数
+		//aggregates_destroy(right_agg_value);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|subselect_start subselect RBRACE comOp ID
+	{
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr right_attr;
+		relation_attr_init(&right_attr, NULL, $5);
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
+		//aggregates_destroy(left_agg_value);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|ID DOT ID comOp subselect_start subselect RBRACE
+	{
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr left_attr;
+		relation_attr_init(&left_attr, $1, $3);
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
+		//aggregates_destroy(right_agg_value);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|subselect_start subselect RBRACE comOp ID DOT ID
+	{
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr right_attr;
+		relation_attr_init(&right_attr, $5, $7);
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
+		//aggregates_destroy(left_agg_value);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	
 		|value comOp value 
 		{
 			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
 			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 0, NULL, right_value);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, left_value, 0, NULL, right_value,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// $$ = ( Condition *)malloc(sizeof( Condition));
 			// $$->left_is_attr = 0;
@@ -662,7 +775,7 @@ condition:
 			relation_attr_init(&right_attr, NULL, $3);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// $$=( Condition *)malloc(sizeof( Condition));
 			// $$->left_is_attr = 1;
@@ -681,7 +794,7 @@ condition:
 			relation_attr_init(&right_attr, NULL, $3);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, left_value, 1, &right_attr, NULL,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 
 			// $$=( Condition *)malloc(sizeof( Condition));
@@ -703,7 +816,7 @@ condition:
 			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, right_value,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 
 			// $$=( Condition *)malloc(sizeof( Condition));
@@ -725,7 +838,7 @@ condition:
 			relation_attr_init(&right_attr, $3, $5);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, left_value, 1, &right_attr, NULL,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// $$=( Condition *)malloc(sizeof( Condition));
 			// $$->left_is_attr = 0;//属性值
@@ -746,7 +859,7 @@ condition:
 			relation_attr_init(&right_attr, $5, $7);
 
 			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
+			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			// $$=( Condition *)malloc(sizeof( Condition));
 			// $$->left_is_attr = 1;		//属性
@@ -760,14 +873,14 @@ condition:
     ;
 
 comOp:
-  	  EQ { CONTEXT->comp = EQUAL_TO; }
-    | LT { CONTEXT->comp = LESS_THAN; }
-    | GT { CONTEXT->comp = GREAT_THAN; }
-    | LE { CONTEXT->comp = LESS_EQUAL; }
-    | GE { CONTEXT->comp = GREAT_EQUAL; }
-    | NE { CONTEXT->comp = NOT_EQUAL; }
-	| ISNULL { CONTEXT->comp = IS_NULL; }
-	| ISNOTNULL { CONTEXT->comp = IS_NOT_NULL; }
+  	  EQ { CONTEXT->comp[CONTEXT->comp_length++] = EQUAL_TO; }
+    | LT { CONTEXT->comp[CONTEXT->comp_length++] = LESS_THAN; }
+    | GT { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_THAN; }
+    | LE { CONTEXT->comp[CONTEXT->comp_length++] = LESS_EQUAL; }
+    | GE { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_EQUAL; }
+    | NE { CONTEXT->comp[CONTEXT->comp_length++] = NOT_EQUAL; }
+	| ISNULL { CONTEXT->comp[CONTEXT->comp_length++] = IS_NULL; }
+	| ISNOTNULL { CONTEXT->comp[CONTEXT->comp_length++] = IS_NOT_NULL; }
     ;
 
 load_data:

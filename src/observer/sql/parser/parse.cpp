@@ -102,22 +102,64 @@ void value_destroy(Value *value) {
 
 void condition_init(Condition *condition, CompOp comp, 
                     int left_is_attr, RelAttr *left_attr, Value *left_value,
-                    int right_is_attr, RelAttr *right_attr, Value *right_value) {
+                    int right_is_attr, RelAttr *right_attr, Value *right_value,
+                    Aggregates* agg_left, Aggregates* agg_right) {
+  LOG_TRACE("init_condition");
   condition->comp = comp;
   condition->left_is_attr = left_is_attr;
   if (left_is_attr) {
     condition->left_attr = *left_attr;
   } else {
-    condition->left_value = *left_value;
+    if(left_value==nullptr){
+      condition->left_agg_value = new Aggregates;
+      aggregates_copy_init(condition->left_agg_value,agg_left);
+      LOG_TRACE("Get left aggregates subquery");
+    }
+    else
+      condition->left_value = *left_value;
   }
 
   condition->right_is_attr = right_is_attr;
   if (right_is_attr) {
     condition->right_attr = *right_attr;
   } else {
-    condition->right_value = *right_value;
+    if(right_value==nullptr){
+      condition->right_agg_value = new Aggregates;
+      aggregates_copy_init(condition->right_agg_value,agg_right);
+      LOG_TRACE("Get right aggregates subquery");
+    }
+    else
+      condition->right_value = *right_value;
   }
 }
+
+
+void value_copy(Value* target, Value* object){
+  target->type = object->type;
+  if(object->data!=nullptr)
+    target->data = strdup((char*)object->data);
+}
+
+void relattr_copy(RelAttr* target,RelAttr* object){
+  if(object->relation_name!=nullptr)
+    target->relation_name = strdup(object->relation_name);
+  if(object->attribute_name!=nullptr)
+    target->attribute_name = strdup(object->attribute_name);
+}
+
+void condition_copy(Condition *target, Condition* object){
+  //子查询不需要深拷贝因为已经被深拷贝过不会在退栈时被释放
+  target->left_is_attr = object->left_is_attr;
+  target->right_is_attr = object->right_is_attr;
+  value_copy(&target->left_value,&object->left_value);
+  value_copy(&target->right_value,&object->right_value);
+  relattr_copy(&target->left_attr,&object->left_attr);
+  relattr_copy(&target->right_attr,&object->right_attr);
+  target->left_agg_value = object->left_agg_value;
+  target->right_agg_value = object->right_agg_value;
+  target->comp = object->comp;
+}
+
 void condition_destroy(Condition *condition) {
   if (condition->left_is_attr) {
     relation_attr_destroy(&condition->left_attr);
@@ -129,6 +171,10 @@ void condition_destroy(Condition *condition) {
   } else {
     value_destroy(&condition->right_value);
   }
+  if(condition->left_agg_value!=nullptr)
+    aggregates_destroy(condition->left_agg_value);
+  if(condition->right_agg_value!=nullptr)
+    aggregates_destroy(condition->right_agg_value);
 }
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
@@ -163,7 +209,8 @@ void selects_append_relation(Selects *selects, const char *relation_name) {
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num) {
   assert(condition_num <= sizeof(selects->conditions)/sizeof(selects->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
-    selects->conditions[i] = conditions[i];
+    //selects->conditions[i] = conditions[i];
+    condition_copy(&selects->conditions[i],&conditions[i]);
   }
   selects->condition_num = condition_num;
 }
@@ -274,10 +321,27 @@ void aggregates_init(Aggregates *aggregates,const char *relation_name,
   aggregates->relation_name = strdup(relation_name);
   assert(condition_num <= sizeof(aggregates->conditions)/sizeof(aggregates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
-    aggregates->conditions[i] = conditions[i];
+    //aggregates->conditions[i] = conditions[i];
+    condition_copy(&aggregates->conditions[i],&conditions[i]);
   }
   aggregates->condition_num = condition_num;
 }
+void aggregates_copy_init(Aggregates* target,Aggregates* object){
+  target->relation_name = strdup(object->relation_name);
+  LOG_DEBUG("relation name in aggregates_copy_init is %s",target->relation_name);
+  for (size_t i = 0; i < object->condition_num; i++) {
+    //target->conditions[i] = object->conditions[i];
+    condition_copy(&target->conditions[i],&object->conditions[i]);
+  }
+  for(size_t i=0;i!=object->field_num;i++){
+    target->field[i].aggregation_type = object->field[i].aggregation_type;
+    target->field[i].attribute_name = strdup(object->field[i].attribute_name);
+  }
+  target->condition_num = object->condition_num;
+  target->field_num = object->field_num;
+}
+
+
 void aggregates_destroy(Aggregates *aggregates){
   free(aggregates->relation_name);
   aggregates->relation_name = nullptr;

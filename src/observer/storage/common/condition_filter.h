@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "rc.h"
 #include "sql/parser/parse.h"
+#include "storage/trx/trx.h"
 
 struct Record;
 class Table;
@@ -97,6 +98,19 @@ private:
   const ConditionFilter **      filters_ = nullptr;
   int                           filter_num_ = 0;
   bool                          memory_owner_ = false; // filters_的内存是否由自己来控制
+};
+
+class ConditionSubQueryhandler{
+  public:
+    ConditionSubQueryhandler(const char* db,Trx* trx_):db_name(db),trx(trx_){
+    };
+    RC check_main_query(Condition* condition,int condition_num);
+  private:
+    const char *db_name;
+    Trx* trx;
+    RC aggregate_to_value(Aggregates* aggregate, Value* value);
+    RC aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
+                    Value* value_,CompositeConditionFilter* filter);
 };
 
 #endif // __OBSERVER_STORAGE_COMMON_CONDITION_FILTER_H_

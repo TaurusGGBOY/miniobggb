@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "storage/common/date.h"
 #include "storage/common/bitmap.h"
+#include "sql/executor/tuple.h"
+#include "storage/default/default_handler.h"
 
 using namespace common;
 
@@ -75,6 +77,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   if (1 == condition.left_is_attr) {
     left.is_attr = true;
     const FieldMeta *field_left = table_meta.field(condition.left_attr.attribute_name);
+    LOG_DEBUG("get left condition field %s",condition.left_attr.attribute_name);
     if (nullptr == field_left) {
       LOG_WARN("No such field in condition. %s.%s", table.name(), condition.left_attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
@@ -87,6 +90,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     type_left = field_left->type();
   } else {
     left.is_attr = false;
+    LOG_DEBUG("get left condition value %d",*(int*)condition.left_value.data);
     left.value = condition.left_value.data;  // 校验type 或者转换类型
     type_left = condition.left_value.type;
     left.attr_length = 0;
@@ -96,6 +100,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   if (1 == condition.right_is_attr) {
     right.is_attr = true;
     const FieldMeta *field_right = table_meta.field(condition.right_attr.attribute_name);
+    LOG_DEBUG("get right condition field %s",condition.right_attr.attribute_name);
     if (nullptr == field_right) {
       LOG_WARN("No such field in condition. %s.%s", table.name(), condition.right_attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
@@ -107,6 +112,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     right.value = nullptr;
     type_right = field_right->type();
   } else {
+    LOG_DEBUG("get right condition value %d",*(int*)condition.right_value.data);
     right.is_attr = false;
     right.value = condition.right_value.data;
     type_right = condition.right_value.type;
@@ -114,6 +120,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     right.attr_length = 0;
     right.attr_offset = 0;
   }
+  LOG_DEBUG("get comp %d",condition.comp);
 
   // 校验和转换
   //  if (!field_type_compare_compatible_table[type_left][type_right]) {
@@ -364,4 +371,81 @@ bool CompositeConditionFilter::filter(const Record &rec) const
     }
   }
   return true;
+}
+
+static RC record_reader_aggregate_adapter(Record* record,void* context){
+  RecordAggregater &aggregater = *(RecordAggregater*)context;
+  return aggregater.update_record(record);
+}
+//提供在查询条件中将聚合字段作为返回值,返回一个标量
+RC ConditionSubQueryhandler::aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
+                    Value* value_,CompositeConditionFilter* filter){
+    AggregatesField field{attr_name,flag};
+    RecordAggregater aggregater(*table);
+    RC rc = aggregater.set_field(&field,1);
+    if(rc !=SUCCESS)
+      return rc;
+    rc = table->scan_record(trx, filter, -1, (void *)&aggregater, record_reader_aggregate_adapter);
+    if(rc !=SUCCESS)
+      return rc;
+    rc = aggregater.get_condition_value(value_);
+    return rc;
+}
+RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* value){
+  RC rc;
+  for(size_t i=0;i!=aggregate->condition_num;i++){
+    if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
+      LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
+      rc = aggregate_to_value(aggregate->conditions[i].left_agg_value,&aggregate->conditions[i].left_value);
+      if(aggregate->conditions[i].left_value.type==INTS)
+        LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
+    }
+    if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
+      LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
+      rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
+      if(aggregate->conditions[i].right_value.type==INTS)
+        LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
+    }
+    if(rc!=RC::SUCCESS)
+      return rc;
+  }
+  //处理aggreagates
+  if(aggregate->field_num>1)
+    return RC::SQL_SYNTAX;
+  Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name);
+  if (nullptr == table) {
+    LOG_WARN("No such table [%s] in db [%s]", aggregate->relation_name, db_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  CompositeConditionFilter condition_filter;
+  rc = condition_filter.init(*table,aggregate->conditions,aggregate->condition_num);
+  if(rc!=RC::SUCCESS)
+    return rc;
+  rc = aggregate_value(trx,table,aggregate->field->attribute_name,aggregate->field->aggregation_type,value,&condition_filter);
+  if(rc!=RC::SUCCESS)
+    return rc;
+  return rc;
+  
+}
+
+RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition_num){
+  RC rc;
+  LOG_TRACE("Start condition subquery check");
+  for(size_t i=0;i!=condition_num;i++){
+    if(!(condition+i)->left_is_attr&&(condition+i)->left_agg_value!=nullptr){
+      LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
+      rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
+      if((condition+i)->left_value.type==INTS)
+        LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
+    }
+    if(!(condition+i)->right_is_attr&&(condition+i)->right_agg_value!=nullptr){
+      LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
+      rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
+      if((condition+i)->right_value.type==INTS)
+        LOG_DEBUG("get value %d",*(int*)(condition+i)->right_value.data);
+    }
+    if(rc!=RC::SUCCESS)
+      return rc;
+  }
+  return rc;
 }
