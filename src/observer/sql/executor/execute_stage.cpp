@@ -225,9 +225,12 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
 bool check_one_condition(const CompOp &cmp, std::pair<int,int>& cond_record, Tuple& tuple)
 {
     std::stringstream s1,s2;
+    if(!((tuple.values().size()>cond_record.first) && (tuple.values().size()>cond_record.second))) {
+     return true;
+    }
     tuple.get(cond_record.first).to_string(s1);
     tuple.get(cond_record.second).to_string(s2);
-    LOG_DEBUG("check %s and %s", s1.str().c_str(),s2.str().c_str());
+    //LOG_DEBUG("check %s and %s", s1.str().c_str(),s2.str().c_str());
     int cmp_res=tuple.get(cond_record.first).compare(tuple.get(cond_record.second));
     switch (cmp) {
       case EQUAL_TO:
@@ -339,7 +342,17 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
 
   for(auto& t:ts) {
     tuples.push_back(&t);
-    print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,selects,cond_record,res,finished);
+    Tuple curr;
+    for(int i=0;i<print_order.size();++i) {
+      int j = print_order[i].first;
+      int k = print_order[i].second;
+      if(tuples.size()>j && tuples[j]->values().size()>k) {
+        curr.add(tuples[j]->values()[k]);
+      }
+    }
+    if(check_all_condition(selects,cond_record,curr)){
+      print_tuple_sets(tuple_sets,index+1,tuples,os,print_order,selects,cond_record,res,finished);
+    }
     tuples.pop_back();
   }
 }
