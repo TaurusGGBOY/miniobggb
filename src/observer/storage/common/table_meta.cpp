@@ -79,8 +79,14 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
   int field_offset = sys_fields_.back().offset() + sys_fields_.back().len(); // 当前实现下，所有类型都是4字节对齐的，所以不再考虑字节对齐问题
 
   for (int i = 0; i < field_num; i++) {
+    bool visible;
+    if(i==0){
+      visible=false;
+    }else{
+      visible=true;
+    }
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, visible, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
@@ -122,6 +128,19 @@ const FieldMeta * TableMeta::field(const char *name) const {
     }
   }
   return nullptr;
+}
+
+int TableMeta::field_index(const char *name) const {
+  if (nullptr == name) {
+    return -1;
+  }
+  for(int i = 2;i<fields_.size();i++){
+    const FieldMeta &field = fields_[i];
+    if (0 == strcmp(field.name(), name)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 const FieldMeta * TableMeta::find_field_by_offset(int offset) const {

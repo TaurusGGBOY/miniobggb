@@ -91,6 +91,9 @@ void value_init_date(Value *value, const char *v) {
     memcpy(value->data, &date_stamp, sizeof(date_stamp));
   }
 }
+void value_init_null(Value *value) {
+  value->type = NULLS;
+}
 void value_destroy(Value *value) {
   value->type = UNDEFINED;
   free(value->data);
@@ -129,12 +132,17 @@ void condition_destroy(Condition *condition) {
 }
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
-  LOG_INFO("in there but may be nothing");
+  attr_info_init_with_null(attr_info, name, type, length, 0);
+}
+
+void attr_info_init_with_null(AttrInfo *attr_info, const char *name, AttrType type, size_t length, int nullable) {
   LOG_INFO("%s, %d, %d", name, (int)type, length);
   attr_info->name = strdup(name);
   attr_info->type = type;
   attr_info->length = length;
+  attr_info->nullable = nullable;
 }
+
 void attr_info_destroy(AttrInfo *attr_info) {
   free(attr_info->name);
   attr_info->name = nullptr;

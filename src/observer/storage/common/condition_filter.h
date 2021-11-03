@@ -26,6 +26,8 @@ struct ConDesc {
   int    attr_length; // 如果是属性，表示属性值长度
   int    attr_offset; // 如果是属性，表示在记录中的偏移量
   void * value;       // 如果是值类型，这里记录值的数据
+  char* table_name;
+  int attr_pos;
 };
 
 class ConditionFilter {

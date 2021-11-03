@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/common/table.h"
 #include "storage/common/date.h"
+#include "storage/common/bitmap.h"
 
 using namespace common;
 
@@ -30,11 +31,15 @@ DefaultConditionFilter::DefaultConditionFilter()
   left_.attr_length = 0;
   left_.attr_offset = 0;
   left_.value = nullptr;
+  left_.table_name="";
+  left_.attr_pos = 0;
 
   right_.is_attr = false;
   right_.attr_length = 0;
   right_.attr_offset = 0;
   right_.value = nullptr;
+  right_.table_name="";
+  right_.attr_pos = 0;
 }
 DefaultConditionFilter::~DefaultConditionFilter()
 {}
@@ -59,6 +64,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
 
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
+  LOG_TRACE("enter");
   const TableMeta &table_meta = table.table_meta();
   ConDesc left;
   ConDesc right;
@@ -75,15 +81,14 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     }
     left.attr_length = field_left->len();
     left.attr_offset = field_left->offset();
-
+    left.table_name = strdup(table.name());
+    left.attr_pos = table_meta.field_index(field_left->name());
     left.value = nullptr;
-
     type_left = field_left->type();
   } else {
     left.is_attr = false;
     left.value = condition.left_value.data;  // 校验type 或者转换类型
     type_left = condition.left_value.type;
-
     left.attr_length = 0;
     left.attr_offset = 0;
   }
@@ -97,9 +102,10 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     }
     right.attr_length = field_right->len();
     right.attr_offset = field_right->offset();
-    type_right = field_right->type();
-
+    right.table_name = strdup(table.name());
+    right.attr_pos = table_meta.field_index(field_right->name());
     right.value = nullptr;
+    type_right = field_right->type();
   } else {
     right.is_attr = false;
     right.value = condition.right_value.data;
@@ -123,8 +129,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       if(date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      right.value = new int(date_int);
       // TODO memory leakage
+      right.value = new int(date_int);
       type_right = DATES;
     }else if(type_left==CHARS && type_right==DATES){
       Date &date = Date::get_instance();
@@ -132,8 +138,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       if (date_int < 0){
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      left.value = new int(date_int);
       // TODO memory leakage
+      left.value = new int(date_int);
       type_left = DATES;
     }else if(type_left==INTS && type_right==FLOATS){
       if(left.is_attr){
@@ -150,85 +156,149 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
         differ_type = true;
         type_left = INTS;
       }
+    }else if (type_left==NULLS){
+      left.value=nullptr;
+      if(type_right==NULLS){
+        right.value = nullptr;
+      }
+    }else if (type_right==NULLS){
+      right.value=nullptr;
+      if(type_left==NULLS){
+        left.value = nullptr;
+      }
     }else{
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
   }
-
+  LOG_TRACE("exit");
   return init(left, right, type_left, condition.comp);
 }
 
 bool DefaultConditionFilter::filter(const Record &rec) const
 {
+  LOG_TRACE("enter");
   char *left_value = nullptr;
   char *right_value = nullptr;
 
-
+  int bitmap_offset  = 4;
+  Bitmap &bitmap = Bitmap::get_instance();
   if (left_.is_attr) {  // value
-    left_value = (char *)(rec.data + left_.attr_offset);
-  } else {
-    left_value = (char *)left_.value;
-  }
-
-  if (right_.is_attr) {
-    right_value = (char *)(rec.data + right_.attr_offset);
-  } else {
-    right_value = (char *)right_.value;
-  }
-
-  float cmp_result = 0;
-  switch (attr_type_) {
-    case CHARS: {  // 字符串都是定长的，直接比较
-      // 按照C字符串风格来定
-      cmp_result = (float)strcmp(left_value, right_value);
-    } break;
-    case DATES:
-    case INTS: {
-      // 没有考虑大小端问题
-      // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
-      if(differ_type){
-        float left;
-        float right;
-        if(left_.is_attr){
-          left = (float)*(int*)left_value;
-          right = *(float*)right_value;
-        }
-        else{
-          left = *(float*)left_value;
-          right = (float)*(int*)right_value;
-        }
-        cmp_result = left - right;
+      if(bitmap.get_null_at_index(rec.data+bitmap_offset, left_.attr_pos-2)==1){
+        left_value=nullptr;
+      }else{
+        left_value = (char *)(rec.data + left_.attr_offset);
       }
-      else{
-        int left = *(int *)left_value;
-        int right = *(int *)right_value;
-        cmp_result = (float)(left - right);
-      }
-      
-    } break;
-    case FLOATS: {
-      float left = *(float *)left_value;
-      float right = *(float *)right_value;
-      cmp_result = left - right;
-    } break;
-    default: {
+  } else {
+    if(left_.value != nullptr){
+      left_value = (char *)left_.value;
+    }else{
+      left_value = nullptr;
     }
   }
 
-  switch (comp_op_) {
-    case EQUAL_TO:
-      return 0 == cmp_result;
-    case LESS_EQUAL:
-      return cmp_result <= 0;
-    case NOT_EQUAL:
-      return cmp_result != 0;
-    case LESS_THAN:
-      return cmp_result < 0;
-    case GREAT_EQUAL:
-      return cmp_result >= 0;
-    case GREAT_THAN:
-      return cmp_result > 0;
+  if (right_.is_attr) {
+    if(bitmap.get_null_at_index(rec.data+bitmap_offset, right_.attr_pos-2)==1){
+        right_value=nullptr;
+      }else{
+       right_value = (char *)(rec.data + right_.attr_offset);
+      }
+  } else {
+    if(right_.value != nullptr){
+      right_value = (char *)right_.value;
+    }else{
+      right_value = nullptr;
+    }
+  }
 
+  float cmp_result = 0;
+  if(left_value != nullptr && right_value != nullptr){
+    switch (attr_type_) {
+      case CHARS: {  // 字符串都是定长的，直接比较
+        // 按照C字符串风格来定
+        cmp_result = (float)strcmp(left_value, right_value);
+      } break;
+      case DATES:
+      case INTS: {
+        // 没有考虑大小端问题
+        // 对int和float，要考虑字节对齐问题,有些平台下直接转换可能会跪
+        if(differ_type){
+          float left;
+          float right;
+          if(left_.is_attr){
+            left = (float)*(int*)left_value;
+            right = *(float*)right_value;
+          }
+          else{
+            left = *(float*)left_value;
+            right = (float)*(int*)right_value;
+          }
+          cmp_result = left - right;
+        }
+        else{
+          int left = *(int *)left_value;
+          int right = *(int *)right_value;
+          cmp_result = (float)(left - right);
+        }
+        
+      } break;
+      case FLOATS: {
+        float left = *(float *)left_value;
+        float right = *(float *)right_value;
+        cmp_result = left - right;
+      } break;
+      default: {
+      }
+    }
+  }
+  
+  switch (comp_op_)
+  {
+    case EQUAL_TO:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return 0 == cmp_result;
+      }
+    case LESS_EQUAL:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return cmp_result <= 0;
+      }
+    case NOT_EQUAL:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return cmp_result != 0;
+      }
+    case LESS_THAN:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return cmp_result < 0;
+      }
+    case GREAT_EQUAL:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return cmp_result >= 0;
+      }
+    case GREAT_THAN:
+      if (left_value == nullptr || right_value == nullptr){
+        return false;
+      }
+      else{
+        return cmp_result > 0;
+      }
+    case IS_NULL:
+      return left_value == nullptr && right_value == nullptr;
+    case IS_NOT_NULL:
+      return left_value != nullptr  || right_value != nullptr;
     default:
       break;
   }

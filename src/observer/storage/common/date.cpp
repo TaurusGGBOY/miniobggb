@@ -16,20 +16,19 @@ int Date::date_to_int(const char * date)
     auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
     auto hours = std::chrono::time_point_cast<std::chrono::hours>(tp).time_since_epoch().count();
     int hour = (int)hours+8;
-    // printf("date:%s day:%d \n", date ,hour);
+    hour /= 24;
     return hour;
 }
 
 void Date::int_to_date(int day, char* buf)
 {
     
-    long long seconds = day * 60 * 60;
+    long long seconds = day * 24 * 60 * 60;
     auto mTime = std::chrono::seconds(seconds);
     auto tp = std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds>(mTime);
     auto tt = std::chrono::system_clock::to_time_t(tp);
     std::tm *now = gmtime(&tt);
     strftime(buf, 40, "%Y-%m-%d", now);
-    // printf("day:%d date:%s\n", day, buf);
 }
 
 bool Date::is_legal(const char* date){

@@ -112,6 +112,8 @@ private:
   int                     file_id_;
   RecordFileHandler *     record_handler_;   /// 记录操作
   std::vector<Index *>    indexes_;
+public:
+  int null_offset();
 };
 
 #endif // __OBSERVER_STORAGE_COMMON_TABLE_H__
