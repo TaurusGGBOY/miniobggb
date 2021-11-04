@@ -230,7 +230,7 @@ bool check_one_condition(const CompOp &cmp, std::pair<int,int>& cond_record, Tup
     }
     tuple.get(cond_record.first).to_string(s1);
     tuple.get(cond_record.second).to_string(s2);
-    //LOG_DEBUG("check %s and %s", s1.str().c_str(),s2.str().c_str());
+    // LOG_DEBUG("check %s and %s", s1.str().c_str(),s2.str().c_str());
     int cmp_res=tuple.get(cond_record.first).compare(tuple.get(cond_record.second));
     switch (cmp) {
       case EQUAL_TO:

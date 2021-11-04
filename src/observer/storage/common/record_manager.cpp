@@ -536,6 +536,8 @@ RC RecordFileScanner::get_next_record(Record *rec) {
     ret = record_page_handler_.get_next_record(&current_record);
     if (RC::SUCCESS == ret) {
       if (condition_filter_ == nullptr || condition_filter_->filter(current_record)) {
+        if(condition_filter_ == nullptr){
+        }
         break; // got one
       }
     } else if (RC::RECORD_EOF == ret) {

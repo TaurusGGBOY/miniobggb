@@ -201,7 +201,7 @@ void inserts_init(Inserts *inserts, const char *relation_name, Value values[MAX_
     inserts->value_length_list[i]=value_length_list[i];
   }
   inserts->value_num = value_num;
-  LOG_DEBUG("values number is %d", value_num);
+  // LOG_DEBUG("values number is %d", value_num);
 }
 void inserts_destroy(Inserts *inserts) {
   free(inserts->relation_name);

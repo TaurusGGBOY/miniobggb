@@ -67,7 +67,6 @@ void Tuple::add_date(int value) {
 }
 
 void Tuple::add_null() {
-  // printf("add null\n");
   add(new NullValue());
 }
 
@@ -272,14 +271,15 @@ void TupleRecordConverter::add_record(const char *record) {
   Tuple tuple;
   const TableMeta &table_meta = table_->table_meta();
   Bitmap &bitmap = Bitmap::get_instance();
-  int bitmap_offset = table_meta.field("null_field")->offset();
+  int bitmap_offset = table_->null_offset();
   // printf("get offset %d\n", bitmap_offset);
   for (int i = 0; i < schema.fields().size();i++) {
     const TupleField &field = schema.fields()[i];
     const FieldMeta *field_meta = table_meta.field(field.field_name());
+    int ind = table_meta.field_index(field.field_name());
     assert(field_meta != nullptr);
     // printf("field_name:%s\n", field.field_name());
-    if(bitmap.get_null_at_index(record+bitmap_offset, i)==1){
+    if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
       tuple.add_null();
       continue;
     }
