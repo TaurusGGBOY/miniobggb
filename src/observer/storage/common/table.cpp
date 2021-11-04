@@ -417,6 +417,12 @@ private:
 static RC scan_record_reader_adapter(Record *record, void *context) {
   RecordReaderScanAdapter &adapter = *(RecordReaderScanAdapter *)context;
   adapter.consume(record);
+    // TODO delete it
+   Bitmap &bitmap = Bitmap::get_instance();
+  if (bitmap.contain_null(record->data + 4)){
+    LOG_ERROR("don't allow select now");
+    return RC::ABORT;
+  }
   return RC::SUCCESS;
 }
 
