@@ -883,20 +883,12 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
       }
     }
   }
-  int bitmap_offset = table_meta_.field("null_field")->offset();
-  // printf("get bitmap offset %d\n",bitmap_offset);
+  Bitmap &bitmap = Bitmap::get_instance();
+  int bitmap_offset = null_offset();
   for (Index *index : indexes_) {
-    // TODO if null then not insert
-    if(index->field_nullable()==1){
-      // 1.get index of field in table 
-      // 2.get bitmap
-      // 3.get if it's null
-      // 4.continue if null
-      int ind = table_meta_.field_index(index->index_meta().field());
-      Bitmap &bitmap = Bitmap::get_instance();
-      if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
-        continue;
-      }
+    int ind = table_meta_.field_index(index->index_meta().field());
+    if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
+      continue;
     }
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
@@ -908,7 +900,13 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
 
 RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists) {
   RC rc = RC::SUCCESS;
+  Bitmap &bitmap = Bitmap::get_instance();
+  int bitmap_offset = null_offset();
   for (Index *index : indexes_) {
+    int ind = table_meta_.field_index(index->index_meta().field());
+    if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
+      continue;
+    }
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
@@ -964,7 +962,6 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   // TODO temp no index
-  return nullptr;
   if (nullptr == filter) {
     return nullptr;
   }
