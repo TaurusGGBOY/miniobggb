@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/record_manager.h"
 #include "storage/common/field_meta.h"
 #include "common/log/log.h"
+#include "storage/common/bitmap.h"
 
 static const uint32_t DELETED_FLAG_BIT_MASK = 0x80000000;
 static const uint32_t TRX_ID_BIT_MASK = 0x7FFFFFFF;
@@ -68,6 +69,12 @@ RC Trx::insert_record(Table *table, Record *record) {
 }
 
 RC Trx::delete_record(Table *table, Record *record) {
+  // TODO delete it
+  Bitmap &bitmap = bitmap.get_instance();
+  if (bitmap.contain_null(record->data + 4)){
+    LOG_ERROR("don't allow delete now");
+    return RC::ABORT;
+  }
   RC rc = RC::SUCCESS;
   start_if_not_started();
   Operation *old_oper = find_operation(table, record->rid);

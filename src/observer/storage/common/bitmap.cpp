@@ -43,3 +43,12 @@ void Bitmap::tostring(const char* bitmap){
     buf[32] = '\0';
     printf("%s\n", buf);
 }
+
+bool Bitmap::contain_null(const char *bitmap){
+    int value = *(int*)(bitmap);
+    int res = 0;
+    for(int i =0;i<=31;i++){
+        res |= (1&value>>i);
+    }
+    return res==1;
+}

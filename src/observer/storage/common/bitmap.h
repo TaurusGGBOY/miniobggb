@@ -22,6 +22,8 @@ public:
     void set_bit_at_index_not_null(const char* bitmap, int index, char* buf);
     int get_null_at_index(const char* bitmap, int index);
     void tostring(const char* bitmap);
+    bool contain_null(const char *bitmap);
+
 };
 
 #endif // __OBSERVER_STORAGE_COMMON_BITMAP_H_
