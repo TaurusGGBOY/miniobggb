@@ -69,12 +69,6 @@ RC Trx::insert_record(Table *table, Record *record) {
 }
 
 RC Trx::delete_record(Table *table, Record *record) {
-  // TODO delete it
-  Bitmap &bitmap = bitmap.get_instance();
-  if (bitmap.contain_null(record->data + 4)){
-    LOG_ERROR("don't allow delete now");
-    return RC::ABORT;
-  }
   RC rc = RC::SUCCESS;
   start_if_not_started();
   Operation *old_oper = find_operation(table, record->rid);
