@@ -101,9 +101,19 @@ void condition_init(Condition *condition, CompOp comp,
                     int left_is_attr, RelAttr *left_attr, Value *left_value,
                     int right_is_attr, RelAttr *right_attr, Value *right_value,
                     Aggregates* agg_left, Aggregates* agg_right) {
-  //传入的condition的空间已经被使用过，所以需要保证每一个成员都被赋值
+  //传入的condition的空间已经被使用过，所以需要保证每一个成员都被赋予正确的初始值
+  LOG_TRACE("Enter");
+  if(condition->left_agg_value!=nullptr||condition->right_agg_value!=nullptr){
+    LOG_WARN("pointer leakage!");
+  }
   condition->left_agg_value=nullptr;
   condition->right_agg_value=nullptr;
+  condition->left_value.data = nullptr;
+  condition->right_value.data = nullptr;
+  condition->left_attr.attribute_name = nullptr;
+  condition->left_attr.relation_name = nullptr;
+  condition->right_attr.attribute_name = nullptr;
+  condition->right_attr.relation_name = nullptr;
 
   condition->comp = comp;
   condition->left_is_attr = left_is_attr;
@@ -131,23 +141,29 @@ void condition_init(Condition *condition, CompOp comp,
     else
       condition->right_value = *right_value;
   }
+  LOG_TRACE("Out");
 }
 
 
 void value_copy(Value* target, Value* object){
+  LOG_TRACE("Enter");
   target->type = object->type;
   if(object->data!=nullptr)
     target->data = strdup((char*)object->data);
+  LOG_TRACE("Out");
 }
 
 void relattr_copy(RelAttr* target,RelAttr* object){
+  LOG_TRACE("Enter");
   if(object->relation_name!=nullptr)
     target->relation_name = strdup(object->relation_name);
   if(object->attribute_name!=nullptr)
     target->attribute_name = strdup(object->attribute_name);
+  LOG_TRACE("out");
 }
 
 void condition_copy(Condition *target, Condition* object){
+  LOG_TRACE("Enter");
   //子查询不需要深拷贝因为已经被深拷贝过不会在退栈时被释放
   target->left_is_attr = object->left_is_attr;
   target->right_is_attr = object->right_is_attr;
@@ -158,6 +174,7 @@ void condition_copy(Condition *target, Condition* object){
   target->left_agg_value = object->left_agg_value;
   target->right_agg_value = object->right_agg_value;
   target->comp = object->comp;
+  LOG_TRACE("Out");
 }
 
 void condition_destroy(Condition *condition) {
@@ -171,10 +188,14 @@ void condition_destroy(Condition *condition) {
   } else {
     value_destroy(&condition->right_value);
   }
-  if(condition->left_agg_value!=nullptr)
+  if(condition->left_agg_value!=nullptr){
     aggregates_destroy(condition->left_agg_value);
-  if(condition->right_agg_value!=nullptr)
+    condition->left_agg_value = nullptr;
+  }
+  if(condition->right_agg_value!=nullptr){
     aggregates_destroy(condition->right_agg_value);
+    condition->right_agg_value=nullptr;
+    }
 }
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
@@ -202,12 +223,14 @@ void selects_append_relation(Selects *selects, const char *relation_name) {
 }
 
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num) {
+  LOG_TRACE("Enter");
   assert(condition_num <= sizeof(selects->conditions)/sizeof(selects->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
     //selects->conditions[i] = conditions[i];
     condition_copy(&selects->conditions[i],&conditions[i]);
   }
   selects->condition_num = condition_num;
+  LOG_TRACE("Out");
 }
 
 void selects_destroy(Selects *selects) {
@@ -312,6 +335,7 @@ void updates_destroy(Updates *updates) {
 void aggregates_init(Aggregates *aggregates,const char *relation_name, 
                       Condition conditions[], size_t condition_num)
 {
+  LOG_TRACE("Enter");
   //CONTEXT的空间在yacc中分配，此函数需分配aggregate中的指针
   aggregates->relation_name = strdup(relation_name);
   assert(condition_num <= sizeof(aggregates->conditions)/sizeof(aggregates->conditions[0]));
@@ -320,6 +344,7 @@ void aggregates_init(Aggregates *aggregates,const char *relation_name,
     condition_copy(&aggregates->conditions[i],&conditions[i]);
   }
   aggregates->condition_num = condition_num;
+  LOG_TRACE("Out");
 }
 void aggregates_copy_init(Aggregates* target,Aggregates* object){
   target->relation_name = strdup(object->relation_name);
@@ -347,6 +372,7 @@ void aggregates_destroy(Aggregates *aggregates){
   //对aggfield中指针的销毁
   for (size_t i=0;i!=aggregates->field_num;i++){
     free(aggregates->field[aggregates->field_num].attribute_name);
+    aggregates->field[aggregates->field_num].attribute_name = nullptr;
   }
   aggregates->field_num = 0;
 }

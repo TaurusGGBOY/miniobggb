@@ -110,6 +110,7 @@ ParserContext *get_context(yyscan_t scanner)
         LE
         GE
         NE
+		IN
 		DATE_T
 		ORDER_BY
 		ASC
@@ -828,6 +829,7 @@ comOp:
     | LE { CONTEXT->comp[CONTEXT->comp_length++] = LESS_EQUAL; }
     | GE { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_EQUAL; }
     | NE { CONTEXT->comp[CONTEXT->comp_length++] = NOT_EQUAL; }
+	| IN { CONTEXT->comp[CONTEXT->comp_length++] = IN}
     ;
 
 load_data:

@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_SQL_PARSER_PARSE_DEFS_H__
 
 #include <stddef.h>
+#include <unordered_set>
 
 #define MAX_NUM 20
 #define MAX_REL_NAME 20
@@ -42,6 +43,7 @@ typedef enum {
   LESS_THAN,    //"<"     3
   GREAT_EQUAL,  //">="    4
   GREAT_THAN,   //">"     5
+  IN, //in 6
   NO_OP
 } CompOp;
 
@@ -113,6 +115,13 @@ typedef struct _Value {
   // }
 } Value;
 
+template<typename T> struct InSelects{
+  //好像是不太行
+  struct _Selects* in_select;
+  AttrType type;
+  std::unordered_set<typename T> in_set;
+};
+
 typedef struct _Condition {
   int left_is_attr;    // TRUE if left-hand side is an attribute
                        // 1时，操作符左边是属性名，0时，是属性值
@@ -128,7 +137,7 @@ typedef struct _Condition {
 } Condition;
 
 // struct of select
-typedef struct {
+typedef struct _Selects {
   size_t    attr_num;               // Length of attrs in Select clause
   RelAttr   attributes[MAX_NUM];    // attrs in Select clause
   size_t    relation_num;           // Length of relations in Fro clause
