@@ -673,6 +673,11 @@ class RecordUpdater{
 
   RC update_record(Record* rec){
     LOG_TRACE("enter");
+    Bitmap &bitmap = bitmap.get_instance();
+    if (bitmap.contain_null(rec->data + 4)){
+      LOG_ERROR("don't allow update now");
+      return RC::ABORT;
+    }
     RC rc = RC::SUCCESS;
     bool need_rollback = false;
     rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
@@ -687,7 +692,7 @@ class RecordUpdater{
     int bitmap_offset = null_field->offset();
     int bitmap_len = null_field->len();
 
-    Bitmap &bitmap = Bitmap::get_instance();
+    // Bitmap &bitmap = Bitmap::get_instance();
     char buf[bitmap_len];
     int ind = table_meta.field_index(field_->name());
 
@@ -961,7 +966,9 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
 }
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
-  // TODO temp no index
+  // TODO stop index temperory
+  return nullptr;
+
   if (nullptr == filter) {
     return nullptr;
   }
