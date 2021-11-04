@@ -317,28 +317,28 @@ RecordAggregater::RecordAggregater(Table& tab) : table_(tab){}
 
 RecordAggregater::~ RecordAggregater(){
     //释放value，先判断类型避免delete void
-    for(int i=0;i!=value_.size();i++){
-      if(field_[i].second == ATF_COUNT){
-        continue;
-      }
-      else{
-        switch (field_[i].first->type())
-        {
-        case INTS:
-        case DATES:
-          delete (int*)value_[i];
-          break;
-        case FLOATS:
-          delete (float*)value_[i];
-          break;
-        case CHARS:
-          delete (char*)value_[i];
-          break;
-        default:
-          break;
-        }
-      }
-    }
+    // for(int i=0;i!=value_.size();i++){
+    //   if(field_[i].second == ATF_COUNT){
+    //     continue;
+    //   }
+    //   else{
+    //     switch (field_[i].first->type())
+    //     {
+    //     case INTS:
+    //     case DATES:
+    //       delete (int*)value_[i];
+    //       break;
+    //     case FLOATS:
+    //       delete (float*)value_[i];
+    //       break;
+    //     case CHARS:
+    //       delete (char*)value_[i];
+    //       break;
+    //     default:
+    //       break;
+    //     }
+    //   }
+    // }
 }
 
 RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_num){
@@ -381,6 +381,7 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
     switch(fm->type()){
       //对不支持的类型插入一个空指针,目前只支持float,int
       case FLOATS:{
+        std::pair<void*, int> *p;
         float* tmp;
         if(agg_field[i].aggregation_type == ATF_MAX)
           tmp = new float(-std::numeric_limits<float>::max());
@@ -389,11 +390,13 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
         else{
           tmp = new float(0);
         }
-        value_.push_back(tmp);
+        p = new std::pair<void*, int>(tmp ,0);
+        value_.push_back(p);
       }
       break;
       case DATES:
       case INTS:{
+        std::pair<void*, int> *p;
         int* tmp;
         if(agg_field[i].aggregation_type == ATF_MAX)
           tmp = new int(INT32_MIN);
@@ -402,15 +405,18 @@ RC RecordAggregater::set_field(const AggregatesField* agg_field,int agg_field_nu
         else{
           tmp = new int(0);
         }
-        value_.push_back(tmp);
+        p = new std::pair<void*, int>(tmp ,0);
+        value_.push_back(p);
       }
       break;
       case CHARS:{
+        std::pair<void*, int> *p;
         char* tmp = new char('\0');
         if(agg_field[i].aggregation_type == ATF_AVG || agg_field[i].aggregation_type == ATF_SUM){
           return RC::SCHEMA_FIELD_NOT_EXIST;
         }
-        value_.push_back(tmp);
+        p = new std::pair<void*, int>(tmp ,0);
+        value_.push_back(p);
       }
       break;
       default:
@@ -459,17 +465,19 @@ RC RecordAggregater::update_record(Record* rec){
     //遍历过程对ATF_COUNT不做任何处理
     case ATF_MAX:
       {
+        std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+        p->second++;
         switch (field_[i].first->type())
         {
         case INTS:
         case DATES:
-          *(int*)value_[i] = std::max(*(int*)value_[i],*(int*)field_data);
+          *(int*)p->first = std::max(*(int*)p->first, *(int*)field_data);
           break;
         case FLOATS:
-          *(float*)value_[i] = std::max(*(float*)value_[i],*(float*)field_data);
+          *(float*)p->first = std::max(*(float*)p->first,*(float*)field_data);
           break;
         case CHARS:
-          str_set_cmp(value_[i],field_data,true);
+          str_set_cmp(p->first,field_data,true);
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -479,17 +487,19 @@ RC RecordAggregater::update_record(Record* rec){
       break;
     case ATF_MIN:
       {
+        std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+        p->second++;
         switch (field_[i].first->type())
         {
         case INTS:
         case DATES:
-          *(int*)value_[i] = std::min(*(int*)value_[i],*(int*)field_data);
+          *(int*)p->first = std::min(*(int*)p->first,*(int*)field_data);
           break;
         case FLOATS:
-          *(float*)value_[i] = std::min(*(float*)value_[i],*(float*)field_data);
+          *(float*)p->first = std::min(*(float*)p->first,*(float*)field_data);
           break;
         case CHARS:
-          str_set_cmp(value_[i],field_data,false);
+          str_set_cmp(p->first,field_data,false);
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -499,14 +509,16 @@ RC RecordAggregater::update_record(Record* rec){
       break;
     case ATF_SUM:
     {
+      std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+      p->second++;
       switch (field_[i].first->type())
         {
         case INTS:
         case DATES:
-          *(int*)value_[i] += *(int*)field_data;
+          *(int*)p->first += *(int*)field_data;
           break;
         case FLOATS:
-          *(float*)value_[i] += *(float*)field_data;
+          *(float*)p->first += *(float*)field_data;
           break;
         default:
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -581,16 +593,17 @@ RC RecordAggregater::get_condition_value(Value* conditionvalue){
     break;
   default:{
     conditionvalue->type = field_[0].first->type();
+    std::pair<void*, int>* p = (std::pair<void*, int> *)value_[0];
     switch(field_[0].first->type()){
       case INTS:
       case DATES:
-        conditionvalue->data = new int(*(int*)value_[0]);
+        conditionvalue->data = new int(*(int*)p->first);
       break;
       case FLOATS:
-        conditionvalue->data = new float(*(float*)value_[0]);
+        conditionvalue->data = new float(*(float*)p->first);
       break;
       case CHARS:
-        conditionvalue->data = strdup((char*)value_[0]);
+        conditionvalue->data = strdup((char*)p->first);
       break;
     }
   }
@@ -618,10 +631,7 @@ void RecordAggregater::agg_done(){
       std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
       int not_null_count = p->second;
       if(not_null_count==0){
-        // float *ans = new float((float)*(int*)value_[i]/(float)rec_count);
-        // free(value_[i]);
-        // value_[i] = ans;
-        tuple.add(-1);
+        tuple.add_null();
       }else{
         if(field_[i].first->type() == INTS)
           tuple.add((float)*(int*)p->first/(float)not_null_count);
@@ -630,24 +640,30 @@ void RecordAggregater::agg_done(){
         else if(field_[i].first->type() == DATES)
           tuple.add_date(*(int*)p->first/not_null_count);
         else
-          tuple.add(-1);
+          tuple.add_null();
       }
     }
       break;
     default:{
+      std::pair<void*, int>* p = (std::pair<void*, int> *)value_[i];
+      int not_null_count = p->second;
+      if(not_null_count==0){
+        tuple.add_null();
+        break;
+      }
       switch (field_[i].first->type())
       {
       case DATES:
-        tuple.add_date(*(int*)value_[i]);
+        tuple.add_date(*(int*)p->first);
         break;
       case INTS:
-        tuple.add(*(int*)value_[i]);
+        tuple.add(*(int*)p->first);
         break;
       case FLOATS:
-        tuple.add(*(float*)value_[i]);
+        tuple.add(*(float*)p->first);
         break;
       case CHARS:
-        tuple.add((char*)value_[i],std::min((int)strlen((char*)value_[i]),field_[i].first->len()));
+        tuple.add((char*)p->first ,std::min((int)strlen((char*)p->first),field_[i].first->len()));
         break;
       default:
         break;
