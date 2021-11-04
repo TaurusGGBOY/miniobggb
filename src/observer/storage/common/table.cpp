@@ -216,6 +216,12 @@ RC Table::rollback_insert(Trx *trx, const RID &rid) {
 }
 
 RC Table::insert_record(Trx *trx, Record *record) {
+  // TODO delete it
+  Bitmap &bitmap = bitmap.get_instance();
+  if (bitmap.contain_null(record->data + 4)){
+    LOG_ERROR("don't allow insert now");
+    return RC::ABORT;
+  }
   RC rc = RC::SUCCESS;
   if (trx != nullptr) {
     trx->init_trx_info(this, *record);
