@@ -16,7 +16,6 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_SQL_PARSER_PARSE_DEFS_H__
 
 #include <stddef.h>
-#include <unordered_set>
 
 #define MAX_NUM 20
 #define MAX_REL_NAME 20
@@ -115,12 +114,6 @@ typedef struct _Value {
   // }
 } Value;
 
-template<typename T> struct InSelects{
-  //好像是不太行
-  struct _Selects* in_select;
-  AttrType type;
-  std::unordered_set<typename T> in_set;
-};
 
 typedef struct _Condition {
   int left_is_attr;    // TRUE if left-hand side is an attribute
@@ -134,6 +127,10 @@ typedef struct _Condition {
   RelAttr right_attr;  // right-hand side attribute if right_is_attr = TRUE 右边的属性
   Value right_value;   // right-hand side value if right_is_attr = FALSE
   struct _Aggregates* right_agg_value;
+
+  //in subselect
+  struct _Selects* in_select;
+  //std::unordered_set<int>* in_set; This is stored in right_value;
 } Condition;
 
 // struct of select
@@ -300,12 +297,14 @@ void value_destroy(Value *value);
 void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value, int right_is_attr, RelAttr *right_attr, Value *right_value, Aggregates* agg_left,Aggregates* agg_right);
 void condition_copy(Condition *target, Condition* object);
 void condition_destroy(Condition *condition);
+void condition_set_inselect(Condition *condition, Selects* sub_select);
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
 void relattr_copy(RelAttr* target,RelAttr* object);
 
-void selects_init(Selects *selects, ...);
+void selects_init(Selects *selects);
+void selects_copy_init(Selects* target,Selects* object);
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
