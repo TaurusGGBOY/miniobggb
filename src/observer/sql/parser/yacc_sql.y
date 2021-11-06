@@ -111,7 +111,7 @@ ParserContext *get_context(yyscan_t scanner)
         LE
         GE
         NE
-		IN
+		BELONG
 		DATE_T
 		ORDER_BY
 		ASC
@@ -590,13 +590,16 @@ subselect_start:
 subselect:
 	sub_agg_field FROM ID where
 		{
-		aggregates_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],$3,
+		aggregates_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,
 					CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length], 
 					CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 		//printf("Condition start at %d\n",CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 	}
-	|sub_select_attr FROM ID sub_rel_list where
+	;
+sub_in_select:
+	sub_select_attr FROM ID where
 		{	
+			//selects_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection);
 			selects_append_relation(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, $3);
 			selects_append_conditions(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, 
 						CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length],
@@ -619,7 +622,7 @@ sub_agg_field:
 	}
 
 	;
-/*子查询只支持单字段*/
+/*子查询只支持单字段单表*/
 sub_select_attr:
     ID {
 			RelAttr attr;
@@ -633,11 +636,6 @@ sub_select_attr:
 		}
     ;
 
-sub_rel_list:
-    COMMA ID {	
-				selects_append_relation(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, $2);
-		  }
-	;
 attr_list:
     /* empty */
     | COMMA ID attr_list {
@@ -701,6 +699,32 @@ condition:
 			// $$->right_value = *$3;
 
 		}
+	|ID BELONG subselect_start sub_in_select RBRACE{
+		//in subselect
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr left_attr;
+		relation_attr_init(&left_attr, NULL, $1);
+		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
+		condition_set_inselect(&condition,in_select);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+
+
+	}
+	|ID DOT ID BELONG subselect_start sub_in_select RBRACE{
+		//in subselect
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		RelAttr left_attr;
+		relation_attr_init(&left_attr, $1, $3);
+		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Condition condition;
+		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
+		condition_set_inselect(&condition,in_select);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
     |ID comOp subselect_start subselect RBRACE
 	{
 		//出栈

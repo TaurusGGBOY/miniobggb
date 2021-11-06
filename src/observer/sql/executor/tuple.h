@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/executor/value.h"
 #include "storage/common/table_meta.h"
 #include "storage/common/record_manager.h"
+#include<unordered_set>
 
 class Table;
 
@@ -194,6 +195,16 @@ public:
 private:
   Table *table_;
   TupleSet &tuple_set_;
+};
+
+class SetRecordConverter{
+public:
+  SetRecordConverter(Table* table,std::unordered_set<int>* in_set,const FieldMeta* fm);
+  RC add_record(Record* rec);
+private:
+  Table* table_;
+  std::unordered_set<int>* in_set_;
+  const FieldMeta* fm_;
 };
 
 class RecordAggregater {

@@ -48,6 +48,7 @@ DefaultConditionFilter::~DefaultConditionFilter()
 
 RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
 {
+  LOG_TRACE("Enter");
   if (attr_type < CHARS || attr_type > DATES) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
     return RC::INVALID_ARGUMENT;
@@ -66,7 +67,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
 
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
-  LOG_TRACE("enter");
+  LOG_TRACE("Enter");
   const TableMeta &table_meta = table.table_meta();
   ConDesc left;
   ConDesc right;
@@ -127,8 +128,14 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   //    // 不能比较的两个字段， 要把信息传给客户端
   //    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   //  }
-  // TODO NOTE：这里没有实现不同类型的数据比较，比如整数跟浮点数之间的对比
-  // 但是选手们还是要实现。这个功能在预选赛中会出现
+  if(condition.comp == IN && type_left!=type_right){
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  if(condition.comp == IN && right.is_attr){
+    LOG_ERROR("Right attr of in select");
+  }
+
+  // 整数跟浮点数之间的对比
   if (type_left != type_right) {
     if(type_left == DATES && type_right ==CHARS){
       Date &date = Date::get_instance();
@@ -215,6 +222,13 @@ bool DefaultConditionFilter::filter(const Record &rec) const
               right_value = nullptr;
           }
       }
+  }
+
+  if(comp_op_==IN){
+    LOG_TRACE("count in");
+    std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
+    LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
+    return in_set->count(*reinterpret_cast<int*>(left_value));
   }
 
   float cmp_result = 0;
@@ -336,6 +350,7 @@ RC CompositeConditionFilter::init(const ConditionFilter *filters[], int filter_n
 
 RC CompositeConditionFilter::init(Table &table, const Condition *conditions, int condition_num)
 {
+  LOG_TRACE("Enter");
   if (condition_num == 0) {
     return RC::SUCCESS;
   }
@@ -373,6 +388,44 @@ bool CompositeConditionFilter::filter(const Record &rec) const
   return true;
 }
 
+static RC record_reader_select_value(Record* record,void* context){
+  SetRecordConverter &converter = *(SetRecordConverter*)context;
+  return converter.add_record(record);
+}
+
+RC ConditionSubQueryhandler::select_to_value(Selects* select,Value* value){
+  LOG_TRACE("Enter");
+  RC rc;
+  rc = check_main_query(select->conditions,select->condition_num);
+  if(rc!=RC::SUCCESS)
+    return rc;
+  if(select->relation_num!=1||select->attr_num!=1){
+    LOG_WARN("Get relation num %d attr num %d",select->relation_num,select->attr_num);
+    return RC::SCHEMA_FIELD_REDUNDAN;
+  }
+  Table* table = DefaultHandler::get_default().find_table(db_name,select->relations[0]);
+  LOG_TRACE("Enter");
+  if (nullptr == table) {
+    LOG_WARN("No such table [%s] in db [%s]", select->relations[0], db_name);
+    return RC::SCHEMA_TABLE_NOT_EXIST;
+  }
+  LOG_TRACE("Enter");
+  const FieldMeta* fm = table->table_meta_.field(select->attributes->attribute_name);
+  if(fm==nullptr)
+    return RC::SCHEMA_FIELD_NOT_EXIST;
+  LOG_TRACE("Enter");
+  value->data = new std::unordered_set<int>;
+  value->type = fm->type();
+  LOG_TRACE("Enter");
+  CompositeConditionFilter condition_filter;
+  rc = condition_filter.init(*table,select->conditions,select->condition_num);
+  if(rc!=RC::SUCCESS)
+    return rc;
+  SetRecordConverter setconverter(table,(std::unordered_set<int>*) value->data, fm);
+  rc = table->scan_record(this->trx, &condition_filter,-1,(void*)&setconverter,record_reader_select_value);
+  return rc;
+}
+
 static RC record_reader_aggregate_adapter(Record* record,void* context){
   RecordAggregater &aggregater = *(RecordAggregater*)context;
   return aggregater.update_record(record);
@@ -400,6 +453,8 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
       if(aggregate->conditions[i].left_value.type==INTS)
         LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
     }
+    if(rc!=RC::SUCCESS)
+      return rc;
     if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
@@ -408,10 +463,13 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
     }
     if(rc!=RC::SUCCESS)
       return rc;
+    if(aggregate->conditions[i].in_select!=nullptr){
+      rc = select_to_value(aggregate->conditions[i].in_select,&aggregate->conditions[i].right_value);
+    }
   }
   //处理aggreagates
   if(aggregate->field_num>1)
-    return RC::SQL_SYNTAX;
+    return RC::SCHEMA_FIELD_REDUNDAN;
   Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name);
   if (nullptr == table) {
     LOG_WARN("No such table [%s] in db [%s]", aggregate->relation_name, db_name);
@@ -432,12 +490,20 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
   RC rc;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
+    if((condition+i)->in_select!=nullptr){
+      LOG_TRACE("Get sub select");
+      rc = select_to_value((condition+i)->in_select,&(condition+i)->right_value);
+    }
+    if(rc!=RC::SUCCESS)
+      return rc;
     if(!(condition+i)->left_is_attr&&(condition+i)->left_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
       if((condition+i)->left_value.type==INTS)
         LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
     }
+    if(rc!=RC::SUCCESS)
+      return rc;
     if(!(condition+i)->right_is_attr&&(condition+i)->right_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
@@ -446,6 +512,8 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     }
     if(rc!=RC::SUCCESS)
       return rc;
+    
   }
+  LOG_TRACE("End condition subquery check");
   return rc;
 }

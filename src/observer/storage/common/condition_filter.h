@@ -108,6 +108,7 @@ class ConditionSubQueryhandler{
   private:
     const char *db_name;
     Trx* trx;
+    RC select_to_value(Selects* select,Value* value);
     RC aggregate_to_value(Aggregates* aggregate, Value* value);
     RC aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
                     Value* value_,CompositeConditionFilter* filter);
