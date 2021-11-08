@@ -44,6 +44,7 @@ typedef enum {
   GREAT_THAN,   //">"     5
   IS_NULL,      //"IS NULL"     6
   IS_NOT_NULL,  //"IS NOT NULL"     7
+  IN, //in 8
   NO_OP
 } CompOp;
 
@@ -115,20 +116,27 @@ typedef struct _Value {
   // }
 } Value;
 
+
 typedef struct _Condition {
   int left_is_attr;    // TRUE if left-hand side is an attribute
                        // 1时，操作符左边是属性名，0时，是属性值
   Value left_value;    // left-hand side value if left_is_attr = FALSE
   RelAttr left_attr;   // left-hand side attribute
+  struct _Aggregates* left_agg_value;
   CompOp comp;         // comparison operator
   int right_is_attr;   // TRUE if right-hand side is an attribute
                        // 1时，操作符右边是属性名，0时，是属性值
   RelAttr right_attr;  // right-hand side attribute if right_is_attr = TRUE 右边的属性
   Value right_value;   // right-hand side value if right_is_attr = FALSE
+  struct _Aggregates* right_agg_value;
+
+  //in subselect
+  struct _Selects* in_select;
+  //std::unordered_set<int>* in_set; This is stored in right_value;
 } Condition;
 
 // struct of select
-typedef struct {
+typedef struct _Selects {
   size_t    attr_num;               // Length of attrs in Select clause
   RelAttr   attributes[MAX_NUM];    // attrs in Select clause
   size_t    relation_num;           // Length of relations in Fro clause
@@ -221,7 +229,7 @@ typedef struct{
   enum AggregationTypeFlag aggregation_type;
 }AggregatesField;
 
-typedef struct{
+typedef struct _Aggregates{
   AggregatesField field[MAX_NUM];
   int field_num;
   char* relation_name;
@@ -243,6 +251,7 @@ union Queries {
   Aggregates aggregation;
   char *errors;
 };
+typedef union Queries SubQuries;
 
 // 修改yacc中相关数字编码为宏定义
 enum SqlCommandFlag {
@@ -286,17 +295,21 @@ void value_init_float(Value *value, float v);
 void value_init_string(Value *value, const char *v);
 void value_init_date(Value *value, const char *v);
 void value_init_null(Value *value);
+void value_copy(Value* target, Value* object);
 void value_destroy(Value *value);
 
-void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
-    int right_is_attr, RelAttr *right_attr, Value *right_value);
+void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value, int right_is_attr, RelAttr *right_attr, Value *right_value, Aggregates* agg_left,Aggregates* agg_right);
+void condition_copy(Condition *target, Condition* object);
 void condition_destroy(Condition *condition);
+void condition_set_inselect(Condition *condition, Selects* sub_select);
 
 void attr_info_init_with_null(AttrInfo *attr_info, const char *name, AttrType type, size_t length, int nullable);
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
+void relattr_copy(RelAttr* target,RelAttr* object);
 
-void selects_init(Selects *selects, ...);
+void selects_init(Selects *selects);
+void selects_copy_init(Selects* target,Selects* object);
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
@@ -315,6 +328,7 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
 void updates_destroy(Updates *updates);
 
 void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition conditions[], size_t condition_num);
+void aggregates_copy_init(Aggregates* target,Aggregates* object);
 void aggregates_destroy(Aggregates *aggregates);
 void aggregates_append_field_itoa(Aggregates *aggregates,int number,const char* type_name);
 void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);
@@ -344,6 +358,7 @@ Query *query_create();  // create and init
 void query_reset(Query *query);
 void query_destroy(Query *query);  // reset and delete
 
+void query_stack_pop(SubQuries* sub, int isselect);
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

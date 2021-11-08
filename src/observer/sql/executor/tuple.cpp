@@ -313,6 +313,15 @@ void TupleRecordConverter::add_record(const char *record) {
   tuple_set_.add(std::move(tuple));
 }
 
+SetRecordConverter::SetRecordConverter(Table* table,std::unordered_set<int>* in_set,const FieldMeta* fm)
+            :table_(table),in_set_(in_set),fm_(fm){}
+
+RC SetRecordConverter::add_record(Record* rec){
+  void* data = malloc(sizeof(int));
+  memcpy(data,(rec->data)+fm_->offset(),fm_->len());
+  in_set_->insert(*reinterpret_cast<int*>(data));
+};
+
 RecordAggregater::RecordAggregater(Table& tab) : table_(tab){}
 
 RecordAggregater::~ RecordAggregater(){

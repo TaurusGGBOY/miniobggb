@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include<regex>
 #include "../../storage/common/date.h"
+#include<unordered_set>
 
 RC parse(char *st, Query *sqln);
 
@@ -102,23 +103,102 @@ void value_destroy(Value *value) {
 
 void condition_init(Condition *condition, CompOp comp, 
                     int left_is_attr, RelAttr *left_attr, Value *left_value,
-                    int right_is_attr, RelAttr *right_attr, Value *right_value) {
+                    int right_is_attr, RelAttr *right_attr, Value *right_value,
+                    Aggregates* agg_left, Aggregates* agg_right) {
+  //传入的condition的空间已经被使用过，所以需要保证每一个成员都被赋予正确的初始值
+  LOG_TRACE("Enter");
+  if(condition->left_agg_value!=nullptr||condition->right_agg_value!=nullptr){
+    LOG_WARN("pointer leakage!");
+  }
+  condition->left_agg_value=nullptr;
+  condition->right_agg_value=nullptr;
+  condition->left_value.data = nullptr;
+  condition->right_value.data = nullptr;
+  condition->left_attr.attribute_name = nullptr;
+  condition->left_attr.relation_name = nullptr;
+  condition->right_attr.attribute_name = nullptr;
+  condition->right_attr.relation_name = nullptr;
+
+  // if(condition->in_set!=nullptr||condition->in_select!=nullptr){
+  //   LOG_WARN("pointer leakage!");
+  // }
+  // condition->in_select = nullptr;
+  // condition->in_set = nullptr;
+
   condition->comp = comp;
   condition->left_is_attr = left_is_attr;
   if (left_is_attr) {
     condition->left_attr = *left_attr;
   } else {
-    condition->left_value = *left_value;
+    if(agg_left!=nullptr){
+      condition->left_agg_value = new Aggregates;
+      aggregates_copy_init(condition->left_agg_value,agg_left);
+      LOG_TRACE("Get left aggregates subquery");
+    }
+    else if(left_value!=nullptr)
+      condition->left_value = *left_value;
   }
 
   condition->right_is_attr = right_is_attr;
   if (right_is_attr) {
     condition->right_attr = *right_attr;
   } else {
-    condition->right_value = *right_value;
+    if(agg_right!=nullptr){
+      condition->right_agg_value = new Aggregates;
+      aggregates_copy_init(condition->right_agg_value,agg_right);
+      LOG_TRACE("Get right aggregates subquery");
+    }
+    else if(right_value!=nullptr)
+      condition->right_value = *right_value;
   }
+  LOG_TRACE("Out");
 }
+
+
+void value_copy(Value* target, Value* object){
+  LOG_TRACE("Enter");
+  target->type = object->type;
+  if(object->data!=nullptr)
+    target->data = strdup((char*)object->data);
+  LOG_TRACE("Out");
+}
+
+void relattr_copy(RelAttr* target,RelAttr* object){
+  LOG_TRACE("Enter");
+  if(object->relation_name!=nullptr)
+    target->relation_name = strdup(object->relation_name);
+  if(object->attribute_name!=nullptr)
+    target->attribute_name = strdup(object->attribute_name);
+  LOG_TRACE("out");
+}
+
+void condition_copy(Condition *target, Condition* object){
+  LOG_TRACE("Enter");
+  //子查询不需要深拷贝因为已经被深拷贝过不会在退栈时被释放
+  target->left_is_attr = object->left_is_attr;
+  target->right_is_attr = object->right_is_attr;
+  value_copy(&target->left_value,&object->left_value);
+  value_copy(&target->right_value,&object->right_value);
+  relattr_copy(&target->left_attr,&object->left_attr);
+  relattr_copy(&target->right_attr,&object->right_attr);
+  target->left_agg_value = object->left_agg_value;
+  target->right_agg_value = object->right_agg_value;
+  target->in_select = object->in_select;
+  target->comp = object->comp;
+  LOG_TRACE("Out");
+}
+
 void condition_destroy(Condition *condition) {
+  //subTODO
+  if(condition->comp = IN){
+    if(condition->right_value.data==nullptr){
+      LOG_WARN("Get no set to destroy");
+    }
+    else{
+      delete (std::unordered_set<int>*)condition->right_value.data;
+      condition->right_value.data = nullptr;
+    }
+  }
   if (condition->left_is_attr) {
     relation_attr_destroy(&condition->left_attr);
   } else {
@@ -129,6 +209,28 @@ void condition_destroy(Condition *condition) {
   } else {
     value_destroy(&condition->right_value);
   }
+  if(condition->left_agg_value!=nullptr){
+    aggregates_destroy(condition->left_agg_value);
+    condition->left_agg_value = nullptr;
+  }
+  if(condition->right_agg_value!=nullptr){
+    aggregates_destroy(condition->right_agg_value);
+    condition->right_agg_value=nullptr;
+    }
+  
+  // delete condition->in_set;
+  // condition->in_set = nullptr;
+  if(condition->in_select!=nullptr){
+    selects_destroy(condition->in_select);
+    condition->in_select = nullptr;
+  }
+  
+}
+
+void condition_set_inselect(Condition *condition, Selects* sub_select){
+  LOG_TRACE("Get %d rel and %d attr",sub_select->relation_num,sub_select->attr_num);
+  condition->in_select = new Selects;
+  selects_copy_init(condition->in_select,sub_select);
 }
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length) {
@@ -149,7 +251,51 @@ void attr_info_destroy(AttrInfo *attr_info) {
 }
 
 //unused
-void selects_init(Selects *selects, ...);
+void selects_init(Selects *selects){
+  for(int i =0;i!=selects->attr_num;i++){
+    if((selects->attributes+i)->attribute_name!=nullptr){
+      free((selects->attributes+i)->attribute_name);
+      (selects->attributes+i)->attribute_name= nullptr;
+    }
+    if((selects->attributes+i)->relation_name!=nullptr){
+      free((selects->attributes+i)->relation_name);
+      (selects->attributes+i)->relation_name = nullptr;
+    }
+  }
+  selects->attr_num = 0;
+  for(int i = 0;i!=selects->relation_num;i++){
+    if((selects->relations+i)!=nullptr){
+      free(selects->relations+i);
+      selects->relations[i] = nullptr;
+    }
+  }
+  selects->relation_num = 0;
+  // for(int i = 0;i!=selects->condition_num;i++){
+  //   condition_destroy();
+  // }
+  selects->condition_num = 0;
+}
+void selects_copy_init(Selects* target,Selects* object){
+    for(int i =0;i!=object->attr_num;i++){
+      if(object->attributes[i].attribute_name!=nullptr)
+        target->attributes[i].attribute_name = strdup(object->attributes[i].attribute_name);
+      if(object->attributes[i].relation_name!=nullptr)
+        target->attributes[i].relation_name = strdup(object->attributes[i].relation_name);
+    }
+    target->attr_num = object->attr_num;
+    for(int i = 0;i!=object->relation_num;i++){
+      if((object->relations+i)!=nullptr){
+        target->relations[i] = strdup(object->relations[i]);
+    }
+    target->relation_num = object->relation_num;
+    for(int i =0;i!=object->condition_num;i++){
+      condition_copy(&target->conditions[i],&object->conditions[i]);
+    }
+    target->condition_num = object->condition_num;
+  }
+
+
+}
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr) {
   selects->order_attr[selects->order_attr_num++] = *rel_attr;
 }
@@ -161,11 +307,14 @@ void selects_append_relation(Selects *selects, const char *relation_name) {
 }
 
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num) {
+  LOG_TRACE("Enter");
   assert(condition_num <= sizeof(selects->conditions)/sizeof(selects->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
-    selects->conditions[i] = conditions[i];
+    //selects->conditions[i] = conditions[i];
+    condition_copy(&selects->conditions[i],&conditions[i]);
   }
   selects->condition_num = condition_num;
+  LOG_TRACE("Out");
 }
 
 void selects_destroy(Selects *selects) {
@@ -270,14 +419,33 @@ void updates_destroy(Updates *updates) {
 void aggregates_init(Aggregates *aggregates,const char *relation_name, 
                       Condition conditions[], size_t condition_num)
 {
+  LOG_TRACE("Enter");
   //CONTEXT的空间在yacc中分配，此函数需分配aggregate中的指针
   aggregates->relation_name = strdup(relation_name);
   assert(condition_num <= sizeof(aggregates->conditions)/sizeof(aggregates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
-    aggregates->conditions[i] = conditions[i];
+    //aggregates->conditions[i] = conditions[i];
+    condition_copy(&aggregates->conditions[i],&conditions[i]);
   }
   aggregates->condition_num = condition_num;
+  LOG_TRACE("Out");
 }
+void aggregates_copy_init(Aggregates* target,Aggregates* object){
+  target->relation_name = strdup(object->relation_name);
+  LOG_DEBUG("relation name in aggregates_copy_init is %s",target->relation_name);
+  for (size_t i = 0; i < object->condition_num; i++) {
+    //target->conditions[i] = object->conditions[i];
+    condition_copy(&target->conditions[i],&object->conditions[i]);
+  }
+  for(size_t i=0;i!=object->field_num;i++){
+    target->field[i].aggregation_type = object->field[i].aggregation_type;
+    target->field[i].attribute_name = strdup(object->field[i].attribute_name);
+  }
+  target->condition_num = object->condition_num;
+  target->field_num = object->field_num;
+}
+
+
 void aggregates_destroy(Aggregates *aggregates){
   free(aggregates->relation_name);
   aggregates->relation_name = nullptr;
@@ -288,6 +456,7 @@ void aggregates_destroy(Aggregates *aggregates){
   //对aggfield中指针的销毁
   for (size_t i=0;i!=aggregates->field_num;i++){
     free(aggregates->field[aggregates->field_num].attribute_name);
+    aggregates->field[aggregates->field_num].attribute_name = nullptr;
   }
   aggregates->field_num = 0;
 }
@@ -487,6 +656,21 @@ void query_destroy(Query *query) {
   query_reset(query);
   free(query);
 }
+
+void query_stack_pop(SubQuries* sub, int is_select){
+  if(is_select==1){
+    Selects* select = &sub->selection;
+    select->attr_num = 0;
+    select->condition_num = 0;
+    select->relation_num = 0;
+  }
+  else {
+    Aggregates* agg = &sub->aggregation;
+    agg->field_num = 0;
+    agg->condition_num = 0;
+  }
+}
+
 
 #ifdef __cplusplus
 } // extern "C"

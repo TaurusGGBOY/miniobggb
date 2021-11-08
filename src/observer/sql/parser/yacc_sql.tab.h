@@ -1,9 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.5.1.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
-   Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,9 +29,6 @@
 
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
-
-/* Undocumented macros, especially those whose name start with YY_,
-   are private implementation details.  Do not rely on them.  */
 
 #ifndef YY_YY_YACC_SQL_TAB_H_INCLUDED
 # define YY_YY_YACC_SQL_TAB_H_INCLUDED
@@ -91,32 +87,34 @@ extern int yydebug;
     LE = 297,
     GE = 298,
     NE = 299,
-    DATE_T = 300,
-    ORDER_BY = 301,
-    ASC = 302,
-    UNIQUEINDEX = 303,
-    ISNOTNULL = 304,
-    ISNULL = 305,
-    NULLABLE = 306,
-    NOTNULL = 307,
-    NULL_T = 308,
-    NUMBER = 309,
-    FLOAT = 310,
-    ID = 311,
-    AGGREGATE = 312,
-    PATH = 313,
-    SSS = 314,
-    STAR = 315,
-    STRING_V = 316,
-    DATE = 317
+    BELONG = 300,
+    DATE_T = 301,
+    ORDER_BY = 302,
+    ASC = 303,
+    UNIQUEINDEX = 304,
+    ISNOTNULL = 305,
+    ISNULL = 306,
+    NULLABLE = 307,
+    NOTNULL = 308,
+    NULL_T = 309,
+    NUMBER = 310,
+    FLOAT = 311,
+    ID = 312,
+    AGGREGATE = 313,
+    PATH = 314,
+    SSS = 315,
+    STAR = 316,
+    STRING_V = 317,
+    DATE = 318
   };
 #endif
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
+
 union YYSTYPE
 {
-#line 119 "yacc_sql.y"
+#line 125 "yacc_sql.y" /* yacc.c:1909  */
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -126,9 +124,9 @@ union YYSTYPE
   float floats;
   char *position;
 
-#line 130 "yacc_sql.tab.h"
-
+#line 128 "yacc_sql.tab.h" /* yacc.c:1909  */
 };
+
 typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
