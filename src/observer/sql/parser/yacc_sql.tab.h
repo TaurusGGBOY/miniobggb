@@ -52,7 +52,6 @@ extern int yydebug;
     TABLES = 262,
     INDEX = 263,
     SELECT = 264,
-<<<<<<< HEAD
     INNER_JOIN = 265,
     DESC = 266,
     SHOW = 267,
@@ -88,7 +87,7 @@ extern int yydebug;
     LE = 297,
     GE = 298,
     NE = 299,
-    IN = 300,
+    BELONG = 300,
     DATE_T = 301,
     ORDER_BY = 302,
     ASC = 303,
@@ -107,56 +106,6 @@ extern int yydebug;
     STAR = 316,
     STRING_V = 317,
     DATE = 318
-=======
-    DESC = 265,
-    SHOW = 266,
-    SYNC = 267,
-    INSERT = 268,
-    DELETE = 269,
-    UPDATE = 270,
-    LBRACE = 271,
-    RBRACE = 272,
-    COMMA = 273,
-    TRX_BEGIN = 274,
-    TRX_COMMIT = 275,
-    TRX_ROLLBACK = 276,
-    INT_T = 277,
-    STRING_T = 278,
-    FLOAT_T = 279,
-    HELP = 280,
-    EXIT = 281,
-    DOT = 282,
-    INTO = 283,
-    VALUES = 284,
-    FROM = 285,
-    WHERE = 286,
-    AND = 287,
-    SET = 288,
-    ON = 289,
-    LOAD = 290,
-    DATA = 291,
-    INFILE = 292,
-    EQ = 293,
-    LT = 294,
-    GT = 295,
-    LE = 296,
-    GE = 297,
-    NE = 298,
-    BELONG = 299,
-    DATE_T = 300,
-    ORDER_BY = 301,
-    ASC = 302,
-    UNIQUEINDEX = 303,
-    NUMBER = 304,
-    FLOAT = 305,
-    ID = 306,
-    AGGREGATE = 307,
-    PATH = 308,
-    SSS = 309,
-    STAR = 310,
-    STRING_V = 311,
-    DATE = 312
->>>>>>> support in select
   };
 #endif
 
@@ -165,11 +114,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-<<<<<<< HEAD
 #line 125 "yacc_sql.y" /* yacc.c:1909  */
-=======
-#line 119 "yacc_sql.y" /* yacc.c:1909  */
->>>>>>> support in select
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -179,11 +124,7 @@ union YYSTYPE
   float floats;
   char *position;
 
-<<<<<<< HEAD
 #line 128 "yacc_sql.tab.h" /* yacc.c:1909  */
-=======
-#line 122 "yacc_sql.tab.h" /* yacc.c:1909  */
->>>>>>> support in select
 };
 
 typedef union YYSTYPE YYSTYPE;

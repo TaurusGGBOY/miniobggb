@@ -445,6 +445,7 @@ RC ConditionSubQueryhandler::aggregate_value(Trx* trx,Table* table,char* attr_na
     return rc;
 }
 RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* value){
+  LOG_TRACE("Enter");
   RC rc;
   for(size_t i=0;i!=aggregate->condition_num;i++){
     if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
@@ -467,6 +468,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
       rc = select_to_value(aggregate->conditions[i].in_select,&aggregate->conditions[i].right_value);
     }
   }
+  LOG_TRACE("Enter");
   //处理aggreagates
   if(aggregate->field_num>1)
     return RC::SCHEMA_FIELD_REDUNDAN;
@@ -482,6 +484,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   rc = aggregate_value(trx,table,aggregate->field->attribute_name,aggregate->field->aggregation_type,value,&condition_filter);
   if(rc!=RC::SUCCESS)
     return rc;
+  LOG_TRACE("Out");
   return rc;
   
 }

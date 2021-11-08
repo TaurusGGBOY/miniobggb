@@ -130,7 +130,7 @@ void condition_init(Condition *condition, CompOp comp,
   if (left_is_attr) {
     condition->left_attr = *left_attr;
   } else {
-    if(agg_right!=nullptr){
+    if(agg_left!=nullptr){
       condition->left_agg_value = new Aggregates;
       aggregates_copy_init(condition->left_agg_value,agg_left);
       LOG_TRACE("Get left aggregates subquery");
