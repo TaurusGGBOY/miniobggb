@@ -91,7 +91,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     type_left = field_left->type();
   } else {
     left.is_attr = false;
-    LOG_DEBUG("get left condition value %d",*(int*)condition.left_value.data);
     left.value = condition.left_value.data;  // 校验type 或者转换类型
     type_left = condition.left_value.type;
     left.attr_length = 0;
@@ -113,7 +112,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     right.value = nullptr;
     type_right = field_right->type();
   } else {
-    LOG_DEBUG("get right condition value %d",*(int*)condition.right_value.data);
     right.is_attr = false;
     right.value = condition.right_value.data;
     type_right = condition.right_value.type;
@@ -395,7 +393,7 @@ static RC record_reader_select_value(Record* record,void* context){
 
 RC ConditionSubQueryhandler::select_to_value(Selects* select,Value* value){
   LOG_TRACE("Enter");
-  RC rc;
+  RC rc = RC::SUCCESS;
   rc = check_main_query(select->conditions,select->condition_num);
   if(rc!=RC::SUCCESS)
     return rc;
@@ -446,7 +444,7 @@ RC ConditionSubQueryhandler::aggregate_value(Trx* trx,Table* table,char* attr_na
 }
 RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* value){
   LOG_TRACE("Enter");
-  RC rc;
+  RC rc = RC::SUCCESS;
   for(size_t i=0;i!=aggregate->condition_num;i++){
     if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
@@ -454,24 +452,34 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
       if(aggregate->conditions[i].left_value.type==INTS)
         LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
     }
-    if(rc!=RC::SUCCESS)
+    if(rc!=RC::SUCCESS){
+      LOG_TRACE("error");
       return rc;
+    }
     if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
       if(aggregate->conditions[i].right_value.type==INTS)
         LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
     }
-    if(rc!=RC::SUCCESS)
+    if(rc!=RC::SUCCESS){
+      LOG_TRACE("error");
       return rc;
+    }
+      
     if(aggregate->conditions[i].in_select!=nullptr){
       rc = select_to_value(aggregate->conditions[i].in_select,&aggregate->conditions[i].right_value);
     }
   }
   LOG_TRACE("Enter");
   //处理aggreagates
-  if(aggregate->field_num>1)
+  if(aggregate->field_num>1){
+    LOG_WARN("get field num %d\n",aggregate->field_num);
+    for(int i=0;i!=aggregate->field_num;i++){
+      printf("get type %d and name %s\n",aggregate->field[i].aggregation_type,aggregate->field[i].attribute_name);
+    }
     return RC::SCHEMA_FIELD_REDUNDAN;
+  }
   Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name);
   if (nullptr == table) {
     LOG_WARN("No such table [%s] in db [%s]", aggregate->relation_name, db_name);
@@ -479,18 +487,22 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   }
   CompositeConditionFilter condition_filter;
   rc = condition_filter.init(*table,aggregate->conditions,aggregate->condition_num);
-  if(rc!=RC::SUCCESS)
-    return rc;
+  if(rc!=RC::SUCCESS){
+     LOG_TRACE("error");
+      return rc;
+    }
   rc = aggregate_value(trx,table,aggregate->field->attribute_name,aggregate->field->aggregation_type,value,&condition_filter);
-  if(rc!=RC::SUCCESS)
-    return rc;
+  if(rc!=RC::SUCCESS){
+      LOG_TRACE("error");
+      return rc;
+    }
   LOG_TRACE("Out");
   return rc;
   
 }
 
 RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition_num){
-  RC rc;
+  RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
     if((condition+i)->in_select!=nullptr){

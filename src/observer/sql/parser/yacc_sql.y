@@ -708,6 +708,7 @@ condition:
 		Condition condition;
 		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
 		condition_set_inselect(&condition,in_select);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],1);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 
@@ -722,6 +723,7 @@ condition:
 		Condition condition;
 		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
 		condition_set_inselect(&condition,in_select);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],1);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
@@ -736,6 +738,7 @@ condition:
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
 		//TODO for memory leakage
 		//destroy会把子查询的子查询destroy了，需要实现一个不destroy子查询的函数
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
 		//aggregates_destroy(right_agg_value);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
@@ -748,6 +751,7 @@ condition:
 		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
 		//aggregates_destroy(left_agg_value);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
@@ -760,6 +764,7 @@ condition:
 		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
 		//aggregates_destroy(right_agg_value);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
@@ -772,6 +777,7 @@ condition:
 		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
 		//aggregates_destroy(left_agg_value);
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;

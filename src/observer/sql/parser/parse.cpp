@@ -657,6 +657,21 @@ void query_destroy(Query *query) {
   free(query);
 }
 
+void query_stack_pop(SubQuries* sub, int is_select){
+  if(is_select==1){
+    Selects* select = &sub->selection;
+    select->attr_num = 0;
+    select->condition_num = 0;
+    select->relation_num = 0;
+  }
+  else {
+    Aggregates* agg = &sub->aggregation;
+    agg->field_num = 0;
+    agg->condition_num = 0;
+  }
+}
+
+
 #ifdef __cplusplus
 } // extern "C"
 #endif // __cplusplus

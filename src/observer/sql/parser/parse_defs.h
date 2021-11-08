@@ -358,6 +358,7 @@ Query *query_create();  // create and init
 void query_reset(Query *query);
 void query_destroy(Query *query);  // reset and delete
 
+void query_stack_pop(SubQuries* sub, int isselect);
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
