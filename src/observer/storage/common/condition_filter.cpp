@@ -100,7 +100,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   if (1 == condition.right_is_attr) {
     right.is_attr = true;
     const FieldMeta *field_right = table_meta.field(condition.right_attr.attribute_name);
-    LOG_DEBUG("get right condition field %s",condition.right_attr.attribute_name);
     if (nullptr == field_right) {
       LOG_WARN("No such field in condition. %s.%s", table.name(), condition.right_attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
@@ -225,7 +224,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   if(comp_op_==IN){
     LOG_TRACE("count in");
     std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
-    LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
+    //LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
     return in_set->count(*reinterpret_cast<int*>(left_value));
   }
 
@@ -449,8 +448,8 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
     if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].left_agg_value,&aggregate->conditions[i].left_value);
-      if(aggregate->conditions[i].left_value.type==INTS)
-        LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
+      // if(aggregate->conditions[i].left_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
     }
     if(rc!=RC::SUCCESS){
       LOG_TRACE("error");
@@ -459,8 +458,8 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
     if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
-      if(aggregate->conditions[i].right_value.type==INTS)
-        LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
+      // if(aggregate->conditions[i].right_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
     }
     if(rc!=RC::SUCCESS){
       LOG_TRACE("error");
@@ -475,9 +474,6 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   //处理aggreagates
   if(aggregate->field_num>1){
     LOG_WARN("get field num %d\n",aggregate->field_num);
-    for(int i=0;i!=aggregate->field_num;i++){
-      printf("get type %d and name %s\n",aggregate->field[i].aggregation_type,aggregate->field[i].attribute_name);
-    }
     return RC::SCHEMA_FIELD_REDUNDAN;
   }
   Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name);
@@ -514,16 +510,16 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     if(!(condition+i)->left_is_attr&&(condition+i)->left_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
-      if((condition+i)->left_value.type==INTS)
-        LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
+      // if((condition+i)->left_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
     }
     if(rc!=RC::SUCCESS)
       return rc;
     if(!(condition+i)->right_is_attr&&(condition+i)->right_agg_value!=nullptr){
       LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
-      if((condition+i)->right_value.type==INTS)
-        LOG_DEBUG("get value %d",*(int*)(condition+i)->right_value.data);
+      // if((condition+i)->right_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)(condition+i)->right_value.data);
     }
     if(rc!=RC::SUCCESS)
       return rc;
