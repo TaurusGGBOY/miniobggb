@@ -500,6 +500,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
   RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
+    return RC::ABORT;
     if(condition[i].in_select!=nullptr){
       LOG_TRACE("Get sub select");
       rc = select_to_value(condition[i].in_select,&condition[i].right_value);
