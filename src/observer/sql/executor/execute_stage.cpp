@@ -483,8 +483,8 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
 
   //处理子查询
   Selects* _select= &sql->sstr.selection;
-  // ConditionSubQueryhandler subhandler(db,session->current_trx());
-  // rc = subhandler.check_main_query(_select->conditions,_select->condition_num);
+  ConditionSubQueryhandler subhandler(db,session->current_trx());
+  rc = subhandler.check_main_query(_select->conditions,_select->condition_num);
   if(rc!=RC::SUCCESS)
     return rc;
 

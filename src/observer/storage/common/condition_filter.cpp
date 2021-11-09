@@ -74,7 +74,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 
   AttrType type_left = UNDEFINED;
   AttrType type_right = UNDEFINED;
-  printf("1111");
 
   if (1 == condition.left_is_attr) {
     left.is_attr = true;
@@ -445,7 +444,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   LOG_TRACE("Enter");
   RC rc = RC::SUCCESS;
   for(size_t i=0;i!=aggregate->condition_num;i++){
-    if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
+    if(aggregate->conditions[i].left_agg_value!=nullptr){
       // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].left_agg_value,&aggregate->conditions[i].left_value);
       // if(aggregate->conditions[i].left_value.type==INTS)
@@ -455,7 +454,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
       LOG_TRACE("error");
       return rc;
     }
-    if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
+    if(aggregate->conditions[i].right_agg_value!=nullptr){
       // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
       // if(aggregate->conditions[i].right_value.type==INTS)
@@ -507,7 +506,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     }
     if(rc!=RC::SUCCESS)
       return rc;
-    if(!(condition+i)->left_is_attr&&(condition+i)->left_agg_value!=nullptr){
+    if((condition+i)->left_agg_value!=nullptr){
       // LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
       // if((condition+i)->left_value.type==INTS)
@@ -515,7 +514,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     }
     if(rc!=RC::SUCCESS)
       return rc;
-    if(!(condition+i)->right_is_attr&&(condition+i)->right_agg_value!=nullptr){
+    if((condition+i)->right_agg_value!=nullptr){
       // LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
       // if((condition+i)->right_value.type==INTS)
