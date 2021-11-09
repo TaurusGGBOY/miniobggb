@@ -501,7 +501,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
   RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
-    if(*(int*)condition[i].right_value.data != 1)
+    if(*(int*)condition[i].right_value.data != 1 && *(int*)condition[i].right_value.data != 5)
       return RC::ABORT;
     if(condition[i].in_select!=nullptr){
       LOG_TRACE("Get sub select");
