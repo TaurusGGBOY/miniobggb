@@ -141,10 +141,10 @@ typedef struct _Selects {
   RelAttr   attributes[MAX_NUM];    // attrs in Select clause
   size_t    relation_num;           // Length of relations in Fro clause
   char *    relations[MAX_NUM];     // relations in From clause
-  size_t    condition_num;          // Length of conditions in Where clause
-  Condition conditions[MAX_NUM];    // conditions in Where clause
   OrderAttr order_attr[MAX_NUM];
   size_t    order_attr_num;
+  size_t    condition_num;          // Length of conditions in Where clause
+  Condition conditions[MAX_NUM];    // conditions in Where clause
 } Selects;
 
 // struct of insert
