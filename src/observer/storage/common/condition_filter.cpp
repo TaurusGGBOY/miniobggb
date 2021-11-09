@@ -503,10 +503,10 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
   for(size_t i=0;i!=condition_num;i++){
     // if(*(int*)condition[i].right_value.data != 1 && *(int*)condition[i].right_value.data != 5)
     //   return RC::ABORT;
-    if(condition[i].in_select!=nullptr){
-      LOG_TRACE("Get sub select");
-      rc = select_to_value(condition[i].in_select,&condition[i].right_value);
-    }
+    // if(condition[i].in_select!=nullptr){
+    //   LOG_TRACE("Get sub select");
+    //   rc = select_to_value(condition[i].in_select,&condition[i].right_value);
+    // }
     if(rc!=RC::SUCCESS)
       return rc;
     if(condition[i].left_agg_value!=nullptr){
