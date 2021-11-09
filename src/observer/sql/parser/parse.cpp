@@ -122,8 +122,7 @@ void condition_init(Condition *condition, CompOp comp,
   // if(condition->in_set!=nullptr||condition->in_select!=nullptr){
   //   LOG_WARN("pointer leakage!");
   // }
-  // condition->in_select = nullptr;
-  // condition->in_set = nullptr;
+  condition->in_select = nullptr;
 
   condition->comp = comp;
   condition->left_is_attr = left_is_attr;
