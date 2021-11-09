@@ -131,9 +131,9 @@ void condition_init(Condition *condition, CompOp comp,
     condition->left_attr = *left_attr;
   } else {
     if(agg_left!=nullptr){
+      LOG_TRACE("Get left aggregates subquery");
       condition->left_agg_value = new Aggregates;
       aggregates_copy_init(condition->left_agg_value,agg_left);
-      LOG_TRACE("Get left aggregates subquery");
     }
     else if(left_value!=nullptr)
       condition->left_value = *left_value;
@@ -144,9 +144,9 @@ void condition_init(Condition *condition, CompOp comp,
     condition->right_attr = *right_attr;
   } else {
     if(agg_right!=nullptr){
+      LOG_TRACE("Get right aggregates subquery");
       condition->right_agg_value = new Aggregates;
       aggregates_copy_init(condition->right_agg_value,agg_right);
-      LOG_TRACE("Get right aggregates subquery");
     }
     else if(right_value!=nullptr)
       condition->right_value = *right_value;
@@ -159,7 +159,8 @@ void value_copy(Value* target, Value* object){
   LOG_TRACE("Enter");
   target->type = object->type;
   if(object->data!=nullptr)
-    target->data = strdup((char*)object->data);
+    //target->data = strdup((char*)object->data);
+    target->data = object->data;
   LOG_TRACE("Out");
 }
 
@@ -174,13 +175,17 @@ void relattr_copy(RelAttr* target,RelAttr* object){
 
 void condition_copy(Condition *target, Condition* object){
   LOG_TRACE("Enter");
-  //子查询不需要深拷贝因为已经被深拷贝过不会在退栈时被释放
+  //不需要深拷贝
   target->left_is_attr = object->left_is_attr;
   target->right_is_attr = object->right_is_attr;
+  // target->left_value = object->left_value;
+  // target->right_value = target->right_value;
+  target->left_attr = object->left_attr;
+  target->right_attr = object->right_attr;
   value_copy(&target->left_value,&object->left_value);
   value_copy(&target->right_value,&object->right_value);
-  relattr_copy(&target->left_attr,&object->left_attr);
-  relattr_copy(&target->right_attr,&object->right_attr);
+  // relattr_copy(&target->left_attr,&object->left_attr);
+  // relattr_copy(&target->right_attr,&object->right_attr);
   target->left_agg_value = object->left_agg_value;
   target->right_agg_value = object->right_agg_value;
   target->in_select = object->in_select;
