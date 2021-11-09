@@ -509,18 +509,30 @@ RC Table::scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter 
 
 class IndexInserter {
 public:
-  explicit IndexInserter(Index *index) : index_(index) {
+  explicit IndexInserter(Index *index, Table* table) : index_(index), table_(table) {
   }
 
   RC insert_index(const Record *record) {
     return index_->insert_entry(record->data, &record->rid);
   }
+  
+  bool index_value_is_null(const Record *record){
+    const char* field_name = index_->index_meta().field();
+    int ind = table_->table_meta().field_index(field_name);
+    int null_offset = table_->null_offset();
+    Bitmap &bitmap = Bitmap::get_instance();
+    return bitmap.get_null_at_index(record->data+null_offset, ind-2);
+  }
 private:
   Index * index_;
+  Table* table_;
 };
 
 static RC insert_index_record_reader_adapter(Record *record, void *context) {
   IndexInserter &inserter = *(IndexInserter *)context;
+  if(inserter.index_value_is_null(record)){
+    return RC::SUCCESS;
+  }
   return inserter.insert_index(record);
 }
 
@@ -592,7 +604,7 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
     rc = scan_record(trx, nullptr, -1, &index_inserter, insert_unique_index_record_reader_adapter);
   }else{
     LOG_INFO("in not unique create index");
-    IndexInserter index_inserter(index);
+    IndexInserter index_inserter(index, this);
     rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
   } 
   if (rc != RC::SUCCESS) {
@@ -961,8 +973,6 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   // TODO stop index temperory
-  return nullptr;
-
   if (nullptr == filter) {
     return nullptr;
   }
@@ -970,6 +980,12 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   // remove dynamic_cast
   const DefaultConditionFilter *default_condition_filter = dynamic_cast<const DefaultConditionFilter *>(filter);
   if (default_condition_filter != nullptr) {
+    if(!default_condition_filter->left().is_attr&&default_condition_filter->left().value==nullptr){
+      return nullptr;
+    }
+    if(!default_condition_filter->right().is_attr&&default_condition_filter->right().value==nullptr){
+      return nullptr;
+    }
     return find_index_for_scan(*default_condition_filter);
   }
 
