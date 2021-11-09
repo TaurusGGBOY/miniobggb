@@ -500,25 +500,25 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
   RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
-    if((condition+i)->in_select!=nullptr){
+    if(condition[i].in_select!=nullptr){
       LOG_TRACE("Get sub select");
-      rc = select_to_value((condition+i)->in_select,&(condition+i)->right_value);
+      rc = select_to_value(condition[i].in_select,&condition[i].right_value);
     }
     if(rc!=RC::SUCCESS)
       return rc;
-    if((condition+i)->left_agg_value!=nullptr){
-      // LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
-      rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
-      // if((condition+i)->left_value.type==INTS)
-      //   LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
+    if(condition[i].left_agg_value!=nullptr){
+      // LOG_DEBUG("The field name of subagg is %s",condition[i].left_agg_value->field->attribute_name);
+      rc = aggregate_to_value(condition[i].left_agg_value,&condition[i].left_value);
+      // if(condition[i].left_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)condition[i].left_value.data);
     }
     if(rc!=RC::SUCCESS)
       return rc;
-    if((condition+i)->right_agg_value!=nullptr){
-      // LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
-      rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
-      // if((condition+i)->right_value.type==INTS)
-      //   LOG_DEBUG("get value %d",*(int*)(condition+i)->right_value.data);
+    if(condition[i].right_agg_value!=nullptr){
+      // LOG_DEBUG("The field name of subagg is %s",condition[i].right_agg_value->field->attribute_name);
+      rc = aggregate_to_value(condition[i].right_agg_value,&condition[i].right_value);
+      // if(condition[i].right_value.type==INTS)
+      //   LOG_DEBUG("get value %d",*(int*)condition[i].right_value.data);
     }
     if(rc!=RC::SUCCESS)
       return rc;
