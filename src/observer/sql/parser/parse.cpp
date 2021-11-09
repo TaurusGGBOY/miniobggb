@@ -94,6 +94,7 @@ void value_init_date(Value *value, const char *v) {
 }
 void value_init_null(Value *value) {
   value->type = NULLS;
+  value->data = nullptr;
 }
 void value_destroy(Value *value) {
   value->type = UNDEFINED;
