@@ -501,15 +501,15 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
   RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
-    // if(*(int*)condition[i].right_value.data != 1 && *(int*)condition[i].right_value.data != 5)
-    //   return RC::ABORT;
     if(condition[i].in_select!=nullptr){
+      return RC::ABORT;
       LOG_TRACE("Get sub select");
       rc = select_to_value(condition[i].in_select,&condition[i].right_value);
     }
     if(rc!=RC::SUCCESS)
       return rc;
     if(condition[i].left_agg_value!=nullptr){
+      return RC::ABORT;
       // LOG_DEBUG("The field name of subagg is %s",condition[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(condition[i].left_agg_value,&condition[i].left_value);
       // if(condition[i].left_value.type==INTS)
@@ -518,6 +518,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
     if(rc!=RC::SUCCESS)
       return rc;
     if(condition[i].right_agg_value!=nullptr){
+      return RC::ABORT;
       // LOG_DEBUG("The field name of subagg is %s",condition[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(condition[i].right_agg_value,&condition[i].right_value);
       // if(condition[i].right_value.type==INTS)
