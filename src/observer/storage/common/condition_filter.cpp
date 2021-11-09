@@ -78,7 +78,6 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   if (1 == condition.left_is_attr) {
     left.is_attr = true;
     const FieldMeta *field_left = table_meta.field(condition.left_attr.attribute_name);
-    LOG_DEBUG("get left condition field %s",condition.left_attr.attribute_name);
     if (nullptr == field_left) {
       LOG_WARN("No such field in condition. %s.%s", table.name(), condition.left_attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
@@ -446,7 +445,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   RC rc = RC::SUCCESS;
   for(size_t i=0;i!=aggregate->condition_num;i++){
     if(!aggregate->conditions[i].left_is_attr&&aggregate->conditions[i].left_agg_value!=nullptr){
-      LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
+      // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].left_agg_value,&aggregate->conditions[i].left_value);
       // if(aggregate->conditions[i].left_value.type==INTS)
       //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
@@ -456,7 +455,7 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
       return rc;
     }
     if(!aggregate->conditions[i].right_is_attr&&aggregate->conditions[i].right_agg_value!=nullptr){
-      LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
+      // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
       // if(aggregate->conditions[i].right_value.type==INTS)
       //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
@@ -508,7 +507,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     if(rc!=RC::SUCCESS)
       return rc;
     if(!(condition+i)->left_is_attr&&(condition+i)->left_agg_value!=nullptr){
-      LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
+      // LOG_DEBUG("The field name of subagg is %s",(condition+i)->left_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->left_agg_value,&(condition+i)->left_value);
       // if((condition+i)->left_value.type==INTS)
       //   LOG_DEBUG("get value %d",*(int*)(condition+i)->left_value.data);
@@ -516,7 +515,7 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,int condition
     if(rc!=RC::SUCCESS)
       return rc;
     if(!(condition+i)->right_is_attr&&(condition+i)->right_agg_value!=nullptr){
-      LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
+      // LOG_DEBUG("The field name of subagg is %s",(condition+i)->right_agg_value->field->attribute_name);
       rc = aggregate_to_value((condition+i)->right_agg_value,&(condition+i)->right_value);
       // if((condition+i)->right_value.type==INTS)
       //   LOG_DEBUG("get value %d",*(int*)(condition+i)->right_value.data);
