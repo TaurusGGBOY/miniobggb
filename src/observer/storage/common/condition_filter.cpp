@@ -74,6 +74,7 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 
   AttrType type_left = UNDEFINED;
   AttrType type_right = UNDEFINED;
+  printf("1111");
 
   if (1 == condition.left_is_attr) {
     left.is_attr = true;
