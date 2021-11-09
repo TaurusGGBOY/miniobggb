@@ -497,7 +497,6 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
 }
 
 RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condition_num){
-  return RC::SCHEMA_INDEX_EXIST;
   RC rc = RC::SUCCESS;
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
