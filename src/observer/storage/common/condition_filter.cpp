@@ -193,31 +193,26 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   int bitmap_offset  = 4;
   Bitmap &bitmap = Bitmap::get_instance();
 
-  if (bitmap.get_null_at_index(rec.data + bitmap_offset, left_.attr_pos - 2) == 1){
-    left_value = nullptr;
-  }else{
-    if (left_.is_attr) {  // value
-        left_value = (char*)(rec.data + left_.attr_offset);
-    } else {
-        if (left_.value != nullptr)
-            left_value = (char*)left_.value;
-        else 
-            left_value = nullptr;
-    }
+  if (left_.is_attr) {  // value
+      if (bitmap.get_null_at_index(rec.data + bitmap_offset,
+                                   left_.attr_pos - 2) == 1) {
+          left_value = nullptr;
+      } else {
+          left_value = (char*)(rec.data + left_.attr_offset);
+      }
+  } else {
+      left_value = (char*)left_.value;
   }
 
-  if (bitmap.get_null_at_index(rec.data + bitmap_offset, right_.attr_pos - 2) == 1) {
-      right_value = nullptr;
-  } else {
-      if (right_.is_attr) {
-          right_value = (char*)(rec.data + right_.attr_offset);
+  if (right_.is_attr) {
+      if (bitmap.get_null_at_index(rec.data + bitmap_offset,
+                                   right_.attr_pos - 2) == 1) {
+          right_value = nullptr;
       } else {
-          if (right_.value != nullptr) {
-              right_value = (char*)right_.value;
-          } else {
-              right_value = nullptr;
-          }
+          right_value = (char*)(rec.data + right_.attr_offset);
       }
+  } else {
+      right_value = (char*)right_.value;
   }
 
   if(comp_op_==IN){
