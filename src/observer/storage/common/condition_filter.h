@@ -104,7 +104,7 @@ class ConditionSubQueryhandler{
   public:
     ConditionSubQueryhandler(const char* db,Trx* trx_):db_name(db),trx(trx_){
     };
-    RC check_main_query(Condition* condition,int condition_num);
+    RC check_main_query(Condition* condition,size_t condition_num);
   private:
     const char *db_name;
     Trx* trx;
