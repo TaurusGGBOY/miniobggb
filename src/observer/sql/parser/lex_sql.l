@@ -86,7 +86,8 @@ QUOTE            [\'\"]
 [Nn][Oo][Tt][[:space:]][Nn][Uu][Ll][Ll]      				RETURN_TOKEN(NOTNULL);
 [Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]      		 				RETURN_TOKEN(NULLABLE);
 [Nn][Uu][Ll][Ll]     		 								RETURN_TOKEN(NULL_T);										
-[Ii][Nn]							RETURN_TOKEN(BELONG);											
+[Ii][Nn]							RETURN_TOKEN(BELONG);		
+[Nn][Oo][Tt][[:space:]][Ii][Nn]     RETURN_TOKEN(NOTBELONG);						
 {ID}							                       yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("								                       RETURN_TOKEN(LBRACE);
 ")"								                       RETURN_TOKEN(RBRACE);

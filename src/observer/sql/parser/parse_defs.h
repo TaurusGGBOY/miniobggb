@@ -45,6 +45,7 @@ typedef enum {
   IS_NULL,      //"IS NULL"     6
   IS_NOT_NULL,  //"IS NOT NULL"     7
   IN, //in 8
+  NOT_IN,//not in 9
   NO_OP
 } CompOp;
 

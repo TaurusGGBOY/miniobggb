@@ -124,11 +124,11 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   //    // 不能比较的两个字段， 要把信息传给客户端
   //    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   //  }
-  if(condition.comp == IN && type_left!=type_right){
+  if((condition.comp == IN ||condition.comp == NOT_IN) && type_left!=type_right){
     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
   }
-  if(condition.comp == IN && right.is_attr){
-    LOG_ERROR("Right attr of in select");
+  if((condition.comp == IN ||condition.comp == NOT_IN) && right.is_attr){
+    LOG_WARN("Right attr of in select");
   }
 
   // 整数跟浮点数之间的对比
@@ -216,10 +216,17 @@ bool DefaultConditionFilter::filter(const Record &rec) const
   }
 
   if(comp_op_==IN){
-    LOG_TRACE("count in");
+    LOG_TRACE("get in");
     std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
     //LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
     return in_set->count(*reinterpret_cast<int*>(left_value));
+  }
+
+  if(comp_op_==NOT_IN){
+    LOG_TRACE("get not in");
+    std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
+    //LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
+    return in_set->count(*reinterpret_cast<int*>(left_value))==0;
   }
 
   float cmp_result = 0;
@@ -497,14 +504,12 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
   LOG_TRACE("Start condition subquery check");
   for(size_t i=0;i!=condition_num;i++){
     if(condition[i].in_select!=nullptr){
-      return RC::ABORT;
       LOG_TRACE("Get sub select");
       rc = select_to_value(condition[i].in_select,&condition[i].right_value);
     }
     if(rc!=RC::SUCCESS)
       return rc;
     if(condition[i].left_agg_value!=nullptr){
-      return RC::ABORT;
       // LOG_DEBUG("The field name of subagg is %s",condition[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(condition[i].left_agg_value,&condition[i].left_value);
       // if(condition[i].left_value.type==INTS)
@@ -513,7 +518,6 @@ RC ConditionSubQueryhandler::check_main_query(Condition* condition,size_t condit
     if(rc!=RC::SUCCESS)
       return rc;
     if(condition[i].right_agg_value!=nullptr){
-      return RC::ABORT;
       // LOG_DEBUG("The field name of subagg is %s",condition[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(condition[i].right_agg_value,&condition[i].right_value);
       // if(condition[i].right_value.type==INTS)
