@@ -436,8 +436,8 @@ void aggregates_init(Aggregates *aggregates,const char *relation_name,
   LOG_TRACE("Out");
 }
 void aggregates_copy_init(Aggregates* target,Aggregates* object){
+  LOG_DEBUG("field name %s relation name %s",object->field[0].attribute_name,object->relation_name);
   target->relation_name = strdup(object->relation_name);
-  LOG_DEBUG("relation name in aggregates_copy_init is %s",target->relation_name);
   for (size_t i = 0; i < object->condition_num; i++) {
     //target->conditions[i] = object->conditions[i];
     condition_copy(&target->conditions[i],&object->conditions[i]);
@@ -448,6 +448,7 @@ void aggregates_copy_init(Aggregates* target,Aggregates* object){
   }
   target->condition_num = object->condition_num;
   target->field_num = object->field_num;
+  LOG_DEBUG("field name %s relation name %s",target->field[0].attribute_name,target->relation_name);
 }
 
 

@@ -794,6 +794,42 @@ condition:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
+	|subselect_start subselect RBRACE comOp subselect_start subselect RBRACE
+	{
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
+		CONTEXT->sub_selects_length--;
+
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
+		CONTEXT->sub_selects_length--;
+
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, NULL, 0, NULL, NULL,left_agg_value,right_agg_value);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length+2],0);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length+1],0);
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|subselect_start subselect RBRACE comOp value{
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
+		Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,0,NULL,right_value,left_agg_value,NULL);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
+	|value comOp subselect_start subselect RBRACE{
+		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
+		Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,left_value,0,NULL,NULL,NULL,right_agg_value);
+		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
+		CONTEXT->sub_selects_length--;
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+	}
 	|subselect_start subselect RBRACE comOp ID DOT ID
 	{
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
