@@ -33,14 +33,14 @@ DefaultConditionFilter::DefaultConditionFilter()
   left_.attr_length = 0;
   left_.attr_offset = 0;
   left_.value = nullptr;
-  left_.table_name="";
+  left_.table_name=nullptr;
   left_.attr_pos = 0;
 
   right_.is_attr = false;
   right_.attr_length = 0;
   right_.attr_offset = 0;
   right_.value = nullptr;
-  right_.table_name="";
+  right_.table_name=nullptr;
   right_.attr_pos = 0;
 }
 DefaultConditionFilter::~DefaultConditionFilter()

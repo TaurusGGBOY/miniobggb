@@ -195,7 +195,7 @@ void condition_copy(Condition *target, Condition* object){
 
 void condition_destroy(Condition *condition) {
   //subTODO
-  if(condition->comp = IN){
+  if(condition->comp == IN){
     if(condition->right_value.data==nullptr){
       LOG_WARN("Get no set to destroy");
     }

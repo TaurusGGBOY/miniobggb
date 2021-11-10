@@ -704,7 +704,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr left_attr;
 		relation_attr_init(&left_attr, NULL, $1);
-		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection;
 		Condition condition;
 		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
 		condition_set_inselect(&condition,in_select);
@@ -719,7 +719,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr left_attr;
 		relation_attr_init(&left_attr, $1, $3);
-		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Selects* in_select = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection;
 		Condition condition;
 		condition_init(&condition, IN, 1, &left_attr, NULL, 0, NULL, NULL,NULL,NULL);
 		condition_set_inselect(&condition,in_select);
@@ -733,7 +733,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr left_attr;
 		relation_attr_init(&left_attr, NULL, $1);
-		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
 		//TODO for memory leakage
@@ -748,7 +748,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr right_attr;
 		relation_attr_init(&right_attr, NULL, $5);
-		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
 		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
@@ -761,7 +761,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr left_attr;
 		relation_attr_init(&left_attr, $1, $3);
-		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, NULL,NULL,right_agg_value);
 		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);
@@ -774,7 +774,7 @@ condition:
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr right_attr;
 		relation_attr_init(&right_attr, $5, $7);
-		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length];
+		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length],0,NULL,NULL,1,&right_attr,NULL,left_agg_value,NULL);
 		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length],0);

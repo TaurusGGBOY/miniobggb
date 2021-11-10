@@ -320,6 +320,7 @@ RC SetRecordConverter::add_record(Record* rec){
   void* data = malloc(sizeof(int));
   memcpy(data,(rec->data)+fm_->offset(),fm_->len());
   in_set_->insert(*reinterpret_cast<int*>(data));
+  return RC::SUCCESS;
 };
 
 RecordAggregater::RecordAggregater(Table& tab) : table_(tab){}
