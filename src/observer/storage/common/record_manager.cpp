@@ -277,10 +277,10 @@ RC RecordPageHandler::get_first_record(Record *rec) {
 
 RC RecordPageHandler::get_next_record(Record *rec) {
   if (rec->rid.slot_num >= page_header_->record_capacity - 1) {
-    LOG_ERROR("Invalid slot_num:%d, exceed page's record capacity, file_id:page_num %d:%d.",
+    LOG_ERROR("Invalid slot_num:%d, exceed page's record capacity, file_id:page_num %d:%d record_cap:%d.",
               rec->rid.slot_num,
               file_id_,
-              page_handle_.frame->page.page_num);
+              page_handle_.frame->page.page_num, page_header_->record_capacity);
     return RC::RECORD_EOF;
   }
 

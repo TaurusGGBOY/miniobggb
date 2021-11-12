@@ -812,13 +812,11 @@ RC BplusTreeHandler::insert_entry(const char *pkey, const RID *rid) {
     free(key);
     return rc;
   }
-
   rc = disk_buffer_pool_->get_this_page(file_id_, leaf_page, &page_handle);
   if(rc!=SUCCESS){
     free(key);
     return rc;
   }
-
   rc = disk_buffer_pool_->get_data(&page_handle, &pdata);
   if(rc!=SUCCESS){
     free(key);
@@ -1803,7 +1801,6 @@ RC BplusTreeScanner::get_next_idx_in_memory(RID *rid) {
   return RC::RECORD_NO_MORE_IDX_IN_MEM;
 }
 bool BplusTreeScanner::satisfy_condition(const char *pkey) {
-  LOG_TRACE("enter");
   int i1=0,i2=0;
   float f1=0,f2=0;
   const char *s1=nullptr,*s2=nullptr;
@@ -1934,6 +1931,5 @@ bool BplusTreeScanner::satisfy_condition(const char *pkey) {
     default:
       LOG_PANIC("Unknown comp op: %d", comp_op_);
   }
-  LOG_TRACE("exit");
   return flag;
 }
