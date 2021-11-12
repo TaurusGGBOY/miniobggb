@@ -115,6 +115,8 @@ RC Table::create(const char *path, const char *name, const char *base_dir, int a
 }
 
 RC Table::drop(const char *path, const char *name, const char *base_dir){
+  DiskBufferPool* buffer_pool = theGlobalDiskBufferPool();
+  
   //删除table元数据文件
   int ok = ::remove(path);
   if(ok!=0){
@@ -123,6 +125,8 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
   }
   //删除数据文件
   std::string data_file = std::string(base_dir) + "/" + name + TABLE_DATA_SUFFIX;
+  // int data_file_id = buffer_pool->get_file_id(data_file.c_str());
+  // buffer_pool->close_file(data_file_id);
   ok = ::remove(data_file.c_str());
   if(ok!=0){
     LOG_ERROR("Failed to delete %s when drop %s.",path,name);
@@ -131,6 +135,8 @@ RC Table::drop(const char *path, const char *name, const char *base_dir){
   //删除索引文件
   for(Index* index :this->indexes_){
     const char* indexname = (index->index_meta()).name();
+    // int file_id = buffer_pool->get_file_id(indexname);
+    // buffer_pool->close_file(file_id);
     std::string indexFile = index_data_file(base_dir,name,indexname);
     ok = ::remove(indexFile.c_str());
     if(ok!=0){
