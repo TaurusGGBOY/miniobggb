@@ -878,6 +878,7 @@ RC Table::rollback_delete(Trx *trx, const RID &rid) {
 }
 
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
+  LOG_TRACE("enter");
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     index = (BplusTreeIndex*)index;
