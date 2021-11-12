@@ -272,6 +272,8 @@ class DiskBufferPool {
 
     RC flush_all_pages(int file_id);
 
+    int get_file_id(const char* name);
+
    protected:
     RC allocate_block(Frame** buf);
     RC dispose_block(Frame* buf);

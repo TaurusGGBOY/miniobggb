@@ -86,7 +86,6 @@ RC Db::drop_table(const char* table_name){
   }
   //从hashmap中删除
   this->opened_tables_.erase(table_name);
-
   delete table;
   return RC::SUCCESS;
 }

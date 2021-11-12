@@ -425,8 +425,12 @@ RC DiskBufferPool::flush_all_pages(int file_id)
 
 RC DiskBufferPool::force_all_pages(BPFileHandle *file_handle)
 {
-  for (auto iter = bp_manager_.frame_map.begin(); iter != bp_manager_.frame_map.end(); ++iter) {
+  for (auto iter = bp_manager_.frame_map.begin(), next_iter =iter; iter != bp_manager_.frame_map.end(); iter=next_iter) {
+        ++next_iter;
         Frame* frame = iter->second;
+        if(file_handle->file_desc!=frame->file_desc){
+          continue;
+        }
         if (frame->dirty) {
             RC rc = flush_block(frame);
             if (rc != RC::SUCCESS) {
@@ -437,7 +441,6 @@ RC DiskBufferPool::force_all_pages(BPFileHandle *file_handle)
         }
         bp_manager_.delete_frame_in_bpmanager(frame);
     }
-
   return RC::SUCCESS;
 }
 
@@ -445,13 +448,11 @@ RC DiskBufferPool::flush_block(Frame *frame)
 {
   // The better way is use mmap the block into memory,
   // so it is easier to flush data to file.
-
   s64_t offset = ((s64_t)frame->page.page_num) * sizeof(Page);
-  if (lseek(frame->file_desc, offset, SEEK_SET) == offset - 1) {
+    if (lseek(frame->file_desc, offset, SEEK_SET) == offset - 1) {
     LOG_ERROR("Failed to flush page %lld of %d due to failed to seek %s.", offset, frame->file_desc, strerror(errno));
     return RC::IOERR_SEEK;
   }
-
   if (write(frame->file_desc, &(frame->page), sizeof(Page)) != sizeof(Page)) {
     LOG_ERROR("Failed to flush page %lld of %d due to %s.", offset, frame->file_desc, strerror(errno));
     return RC::IOERR_WRITE;
@@ -560,3 +561,15 @@ RC DiskBufferPool::load_page(PageNum page_num, BPFileHandle *file_handle, Frame 
   bp_manager_.add_frame_to_map(frame);
   return RC::SUCCESS;
 }
+
+ int DiskBufferPool::get_file_id(const char* name){
+  for (int i = 0; i < MAX_OPEN_FILE; i++) {
+    if (open_list_[i]) {
+      printf("cmp name:%s,%s\n", open_list_[i]->file_name, name);
+      if (!strcmp(open_list_[i]->file_name, name)) {
+       return i;
+      }
+    }
+  }
+  return -1;
+ }
