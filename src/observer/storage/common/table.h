@@ -67,6 +67,14 @@ public:
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name);
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name, bool is_unique);
+
+  DiskBufferPool* get_buffer_pool() {
+    return data_buffer_pool_;
+  }
+
+  int get_file_id() {
+    return file_id_;
+  }
 public:
   const char *name() const;
 

@@ -29,15 +29,18 @@ const char *ATTR_TYPE_NAME[] = {
   "chars",
   "ints",
   "floats",
-  "dates",
+  "text_page_num",
   "nulls",
-  "bitmaps"
+  "bitmaps",
+  "text",
+  "dates",
 };
 
 const char *attr_type_to_string(AttrType type) {
   if (type >= UNDEFINED && type <= DATES) {
     return ATTR_TYPE_NAME[type];
   }
+  LOG_ERROR("%d type is unknown",type);
   return "unknown";
 }
 
@@ -119,6 +122,7 @@ void FieldMeta::to_json(Json::Value &json_value) const {
   json_value[FIELD_LEN]  = attr_len_;
   json_value[FIELD_VISIBLE] = visible_;
   json_value[FIELD_NULLABLE] = nullable_;
+  LOG_DEBUG("attr:%s,type:%d,len:%d is to json",name_.c_str(),attr_type_,attr_len_);
 }
 
 RC FieldMeta::from_json(const Json::Value &json_value, FieldMeta &field) {

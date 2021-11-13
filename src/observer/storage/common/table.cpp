@@ -325,6 +325,9 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
         if(field->type()==DATES&&value.type==CHARS){
           continue;
         }
+        if(field->type()==TEXT_PAGE_NUM && value.type==CHARS) {
+          continue;
+        }
         LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d",
           field->name(), field->type(), value.type);
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
@@ -333,6 +336,7 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
   }
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
+  LOG_DEBUG("record size is %d",record_size);
   char *record = new char [record_size];
   memset(record,0,record_size);
   const FieldMeta * null_field = table_meta_.field("null_field");
@@ -362,7 +366,79 @@ RC Table::make_record(int value_num, const Value *values, char * &record_out) {
           }else{
             memcpy(record + field->offset(), &date_int, field->len());
           }
-      }else{
+      } else if(field->type() == TEXT_PAGE_NUM) {
+        //分配两个新页面用来保存text数据，把两个page的num存到字段中
+        RC ret;
+        char text_buf[8];
+        for(int i=0;i<2;++i) {
+          BPPageHandle page_handle;
+          page_handle.open=false;
+          int count=0;
+          if((ret=data_buffer_pool_->get_page_count(file_id_,&count))!=RC::SUCCESS) {
+            LOG_ERROR("can't get file %d for insert text",file_id_);
+            return ret;
+          }
+          LOG_DEBUG("file %d page count is %d",file_id_,count);
+          //找一个空闲的text data页面
+          for(int p=1;p<count;++p) {
+            if ((ret = data_buffer_pool_->get_this_page(file_id_,p, &page_handle)) != RC::SUCCESS) {
+              LOG_ERROR("Failed to allocate page when inserting text data. file_it:%d, ret:%d",
+                        file_id_, ret);
+              return ret;
+            }
+            auto* page_header_ = (PageHeader*)(page_handle.frame->page.data);
+            if(page_header_->record_capacity == 1 && page_header_->record_num == 0) {
+              LOG_DEBUG("get a empty text data page[%d] for insert text data",p);
+              break;
+            }
+            LOG_DEBUG("get a page[%d] for insert text data,but it's capacity is %d,num is %d",p,page_header_->record_capacity,page_header_->record_num );
+            data_buffer_pool_->unpin_page(&page_handle);
+
+          }
+          //如果找不到就分配一个
+          if(!page_handle.open) {
+            LOG_DEBUG("can't get a empty page, allocate a new page");
+            if ((ret = data_buffer_pool_->allocate_page(file_id_, &page_handle)) != RC::SUCCESS) {
+              LOG_ERROR("Failed to allocate page when inserting text data. file_it:%d, ret:%d",
+                        file_id_, ret);
+              return ret;
+            }
+
+          }
+          //0号页面好像有啥用，不清楚，跳过这一页
+          if(page_handle.frame->page.page_num == 0 ){
+            LOG_DEBUG("page num is 0, can't use this page");
+            data_buffer_pool_->unpin_page(&page_handle);
+            if ((ret = data_buffer_pool_->allocate_page(file_id_, &page_handle)) != RC::SUCCESS) {
+              LOG_ERROR("Failed to allocate page when inserting text data. file_it:%d, ret:%d",
+                        file_id_, ret);
+              return ret;
+            }
+          }
+
+          PageNum current_page_num = page_handle.frame->page.page_num;
+          auto* page_header_ = (PageHeader*)(page_handle.frame->page.data);
+          LOG_DEBUG("text data is inserted into page:%d",current_page_num);
+          page_header_->record_capacity=1;
+          page_header_->record_num=1;
+          page_header_->record_size=2048;
+          page_header_->record_real_size=2048;
+          page_header_->first_record_offset=sizeof(PageHeader);
+          memcpy(page_handle.frame->page.data+page_header_->first_record_offset, (char*)value.data+i*2048, 2048);
+          memcpy(text_buf+i*4,&current_page_num,4);
+          data_buffer_pool_->mark_dirty(&page_handle);
+          if((ret=data_buffer_pool_->unpin_page(&page_handle))!=RC::SUCCESS) {
+            LOG_ERROR("Failed to unpin page when inserting text data. file_it:%d, ret:%d",
+                      file_id_, ret);
+            return ret;
+          }
+          //memcpy(&p1,&current_page_num,4);
+          //LOG_DEBUG("text data is inserted into page:[%d]",*(int*)(text_buf+4*i));
+        }
+        LOG_DEBUG("text data is inserted into page:[%d:%d]",*(int*)text_buf,*(int*)(text_buf+4));
+        memcpy(record + field->offset(), text_buf, 8);
+      }
+      else{
         memcpy(record + field->offset(), value.data, field->len());
       }
     }
@@ -388,7 +464,13 @@ RC Table::init_record_handler(const char *base_dir) {
   }
 
   record_handler_ = new RecordFileHandler();
-  rc = record_handler_->init(*data_buffer_pool_, data_buffer_pool_file_id);
+  std::vector<int> text_offset;
+  for(int i=0;i<table_meta_.field_num();++i){
+    if(table_meta_.field(i)->type()==TEXT_PAGE_NUM) {
+      text_offset.push_back(table_meta_.field(i)->offset());
+    }
+  }
+  rc = record_handler_->init(*data_buffer_pool_, data_buffer_pool_file_id,text_offset);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to init record handler. rc=%d:%s", rc, strrc(rc));
     return rc;
@@ -681,7 +763,11 @@ class RecordUpdater{
       }else{
         if(field_->type()==DATES && value_->type){
           return RC::SUCCESS;
-        }else{
+        } else if(field_->type() == TEXT_PAGE_NUM && value_->type == CHARS) {
+          LOG_DEBUG("field type is text page num, value type is char, field offset is %d",field_->offset());
+          return RC::SUCCESS;
+        }
+        else{
           return RC::SCHEMA_FIELD_TYPE_MISMATCH; 
         }
       }
@@ -696,7 +782,7 @@ class RecordUpdater{
     rc = table_.delete_entry_of_indexes(rec->data,rec->rid,true);
     // TODO memory leakage
     char *bak = (char*)malloc(sizeof(char)*field_->len());
-    memcpy(rec->data + field_->offset(), &bak, field_->len());
+    memcpy(&bak, rec->data, field_->len());
 
     //将value的值复制到对应的偏移量处
     // if dates then save int rather char
@@ -726,7 +812,41 @@ class RecordUpdater{
           return RC::SCHEMA_FIELD_NOT_EXIST;
         }
         memcpy(rec->data + field_->offset(), &date_int, field_->len());
-      }else{
+      } else if(field_->type()==TEXT_PAGE_NUM) {
+        LOG_DEBUG("update text field");
+        RC rc=RC::SUCCESS;
+        LOG_DEBUG("get text values");
+        int p1 = *(int*)(rec->data + field_->offset());
+        int p2 = *(int*)(rec->data + field_->offset() + 4);
+        LOG_DEBUG("get page [%d:%d] for update text field", p1,p2);
+        BPPageHandle ph1,ph2;
+        if((rc=table_.get_buffer_pool()->get_this_page(table_.file_id_,p1,&ph1))!=RC::SUCCESS) {
+          LOG_ERROR("failed to get page[%d:%d] for update text data",table_.file_id_,p1);
+          return rc;
+        }
+        if((rc=table_.get_buffer_pool()->get_this_page(table_.file_id_,p2,&ph2))!=RC::SUCCESS) {
+          LOG_ERROR("failed to get page[%d:%d] for update text data",table_.file_id_,p2);
+          return rc;
+        }
+        auto* page_header_1 = (PageHeader*)(ph1.frame->page.data);
+        auto* page_header_2 = (PageHeader*)(ph2.frame->page.data);
+        memset(ph1.frame->page.data+page_header_1->first_record_offset,0,2048);
+        memset(ph2.frame->page.data+page_header_2->first_record_offset,0,2048);
+        memcpy(ph1.frame->page.data+page_header_1->first_record_offset, (char*)value_->data, 2048);
+        memcpy(ph2.frame->page.data+page_header_2->first_record_offset, (char*)value_->data+2048, 2048);
+        table_.get_buffer_pool()->mark_dirty(&ph1);
+        table_.get_buffer_pool()->mark_dirty(&ph2);
+        LOG_DEBUG("update page[%d:%d] data for update text data,their record num is [%d:%d]",p1,p2,page_header_1->record_num,page_header_2->record_num);
+        if((rc=table_.get_buffer_pool()->unpin_page(&ph1))!=RC::SUCCESS) {
+          LOG_ERROR("failed to unpin page[%d:%d] for update text data",table_.file_id_,p1);
+          return rc;
+        }
+        if((rc=table_.get_buffer_pool()->unpin_page(&ph2))!=RC::SUCCESS) {
+          LOG_ERROR("failed to unpin page[%d:%d] for update text data",table_.file_id_,p2);
+          return rc;
+        }
+      }
+      else{
         memcpy(rec->data + field_->offset(), value_->data, field_->len());
       }
     }

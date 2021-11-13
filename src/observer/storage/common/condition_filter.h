@@ -73,6 +73,8 @@ private:
   CompOp   comp_op_ = NO_OP;
   //differ_type表示存储的是float但字段值是int，表示需要将record传进的值转换
   bool differ_type = false;
+  bool text_type = false;
+  Table* table_ = nullptr;
 };
 
 class CompositeConditionFilter : public ConditionFilter {

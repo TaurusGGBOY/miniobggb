@@ -86,13 +86,22 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
       visible=true;
     }
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, visible, attr_info.nullable);
+    if(attr_info.type == TEXT) {
+      rc = fields_[i + sys_fields_.size()].init(attr_info.name, TEXT_PAGE_NUM, field_offset, 8, visible, attr_info.nullable);
+    } else {
+      rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, visible, attr_info.nullable);
+    }
+    //rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, visible, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
     }
 
-    field_offset += attr_info.length;
+    if(attr_info.type == TEXT) {
+      field_offset += 8;
+    } else {
+      field_offset +=attr_info.length;
+    }
   }
 
   record_size_ = field_offset;
@@ -123,6 +132,7 @@ const FieldMeta * TableMeta::field(const char *name) const {
     return nullptr;
   }
   for (const FieldMeta &field : fields_) {
+    //LOG_DEBUG("field name:%s, offset:%d", field.name(),field.offset());
     if (0 == strcmp(field.name(), name)) {
       return &field;
     }
