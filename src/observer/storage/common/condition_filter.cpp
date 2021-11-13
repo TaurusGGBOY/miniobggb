@@ -68,6 +68,7 @@ RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrT
 RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 {
   LOG_TRACE("Enter");
+  table_=&table;
   const TableMeta &table_meta = table.table_meta();
   ConDesc left;
   ConDesc right;
@@ -176,7 +177,14 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
       if(type_left==NULLS){
         left.value = nullptr;
       }
-    }else{
+    } else if(type_left == CHARS && type_right == TEXT_PAGE_NUM){
+      text_type=true;
+    } else if(type_left == TEXT_PAGE_NUM && type_right == CHARS){
+      text_type=true;
+      type_left=CHARS;
+    }
+    else{
+      LOG_ERROR("type left is not match type right right");
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
   }
@@ -187,8 +195,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
 bool DefaultConditionFilter::filter(const Record &rec) const
 {
   LOG_TRACE("enter");
-  char *left_value = nullptr;
-  char *right_value = nullptr;
+  const char *left_value = nullptr;
+  const char *right_value = nullptr;
 
   int bitmap_offset  = 4;
   Bitmap &bitmap = Bitmap::get_instance();
@@ -234,7 +242,57 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     switch (attr_type_) {
       case CHARS: {  // 字符串都是定长的，直接比较
         // 按照C字符串风格来定
-        cmp_result = (float)strcmp(left_value, right_value);
+        if(text_type) {
+          std::string l_s,r_s;
+          if(left_.is_attr) {
+            LOG_DEBUG("left value is a text,get text data");
+            int p1 = *(int*)(left_value);
+            int p2 = *(int*)(left_value + 4);
+            LOG_DEBUG("text data page id [%d:%d]",p1,p2);
+            BPPageHandle h1,h2;
+            if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p1,&h1)!=RC::SUCCESS) {
+              LOG_ERROR("failed to get page for get text data ");
+            }
+            if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p2,&h2)!=RC::SUCCESS) {
+              LOG_ERROR("failed to get page for get text data ");
+            }
+            PageHeader* ph1=(PageHeader*)h1.frame->page.data;
+            PageHeader* ph2=(PageHeader*)h1.frame->page.data;
+            LOG_DEBUG("text value page is [%d:%d]",p1,p2);
+            l_s.append(h1.frame->page.data+ph1->first_record_offset,2048);
+            l_s.append(h2.frame->page.data+ph2->first_record_offset,2048);
+            left_value=l_s.c_str();
+            if(table_->get_buffer_pool()->unpin_page(&h1)!=RC::SUCCESS ||
+               table_->get_buffer_pool()->unpin_page(&h2)!=RC::SUCCESS) {
+              LOG_ERROR("failed to unpin page after get text data");
+            }
+          }
+          if(right_.is_attr) {
+            int p1 = *(int*)(right_value);
+            int p2 = *(int*)(right_value + 4);
+            BPPageHandle h1,h2;
+            if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p1,&h1)!=RC::SUCCESS) {
+              LOG_ERROR("failed to get page for get text data ");
+            }
+            if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p2,&h2)!=RC::SUCCESS) {
+              LOG_ERROR("failed to get page for get text data ");
+            }
+            PageHeader* ph1=(PageHeader*)h1.frame->page.data;
+            PageHeader* ph2=(PageHeader*)h1.frame->page.data;
+            LOG_DEBUG("text value page is [%d:%d]",p1,p2);
+            r_s.append(h1.frame->page.data+ph1->first_record_offset,2048);
+            r_s.append(h2.frame->page.data+ph2->first_record_offset,2048);
+            right_value=r_s.c_str();
+            if(table_->get_buffer_pool()->unpin_page(&h1)!=RC::SUCCESS ||
+               table_->get_buffer_pool()->unpin_page(&h2)!=RC::SUCCESS) {
+              LOG_ERROR("failed to unpin page after get text data");
+            }
+          }
+          cmp_result = (float )strcmp(left_value,right_value);
+
+        } else{
+          cmp_result = (float)strcmp(left_value, right_value);
+        }
       } break;
       case DATES:
       case INTS: {
