@@ -309,8 +309,8 @@ bool RecordPageHandler::is_full() const {
 }
 
 bool RecordPageHandler::is_text_data() const {
-  LOG_DEBUG("check is text data,capacity is %d,num is %d",page_header_->record_capacity,page_header_->record_num);
-  return page_header_->record_capacity==1 && page_header_->record_num ==1;
+  //LOG_DEBUG("check is text data,capacity is %d,num is %d",page_header_->record_capacity,page_header_->record_num);
+  return page_header_->record_capacity==1;
 }
 ////////////////////////////////////////////////////////////////////////////////
 

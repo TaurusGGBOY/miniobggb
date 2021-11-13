@@ -227,14 +227,14 @@ bool DefaultConditionFilter::filter(const Record &rec) const
     LOG_TRACE("get in");
     std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
     //LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
-    return in_set->count(*reinterpret_cast<int*>(left_value));
+    return in_set->count(*reinterpret_cast<const int*>(left_value));
   }
 
   if(comp_op_==NOT_IN){
     LOG_TRACE("get not in");
     std::unordered_set<int>* in_set = (std::unordered_set<int>*) right_.value;
     //LOG_TRACE("filter value %d",*reinterpret_cast<int*>(left_value));
-    return in_set->count(*reinterpret_cast<int*>(left_value))==0;
+    return in_set->count(*reinterpret_cast<const int*>(left_value))==0;
   }
 
   float cmp_result = 0;

@@ -132,7 +132,7 @@ const FieldMeta * TableMeta::field(const char *name) const {
     return nullptr;
   }
   for (const FieldMeta &field : fields_) {
-    LOG_DEBUG("field name:%s, offset:%d", field.name(),field.offset());
+    //LOG_DEBUG("field name:%s, offset:%d", field.name(),field.offset());
     if (0 == strcmp(field.name(), name)) {
       return &field;
     }
