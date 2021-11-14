@@ -232,7 +232,7 @@ void TupleSet::print(std::ostream &os, bool table_name) const {
       os << " | ";
     }
     values.back()->to_string(os);
-    LOG_DEBUG("print endl");
+    //LOG_DEBUG("print endl");
     os << std::endl;
   }
 }
@@ -308,6 +308,7 @@ void TupleRecordConverter::add_record(const char *record) {
         const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
         tuple.add(s, std::min((int)strlen(s),field_meta->len()));
       }
+        break;
       case TEXT_PAGE_NUM:{
         LOG_DEBUG("get text values");
         int p1 = *(int*)(record + field_meta->offset());
