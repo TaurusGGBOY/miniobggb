@@ -223,7 +223,8 @@ void end_trx_if_need(Session *session, Trx *trx, bool all_right) {
 }
 
 bool check_one_condition(const CompOp &cmp, std::pair<int,int>& cond_record, Tuple& tuple)
-{
+{   
+    //TODO BUG:和NULL的比较要全返回false
     std::stringstream s1,s2;
     if(!((tuple.values().size()>cond_record.first) && (tuple.values().size()>cond_record.second))) {
      return true;

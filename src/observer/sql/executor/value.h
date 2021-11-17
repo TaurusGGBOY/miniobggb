@@ -145,10 +145,10 @@ public:
     else{
       LOG_ERROR("Unsupported compare");
     }
-    if (result > 0) { // 浮点数没有考虑精度问题
+    if (result > 0.01) { //浮点数做差在0.01之内都视为相等
       return 1;
     }
-    if (result < 0) {
+    if (result < -0.01) {
       return -1;
     }
     return 0;
