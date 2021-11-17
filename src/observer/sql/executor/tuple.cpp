@@ -904,6 +904,7 @@ RC GroupTupleSet::to_value(Value* value){
     break;
   case FLOATS:
     value->data = new float(((const FloatValue&)row->get(0)).get_value());
+    LOG_DEBUG("Get multiagg value %f",((const FloatValue&)row->get(0)).get_value());
     break;
   case CHARS:
     value->data=strdup(((const StringValue&)row->get(0)).get_value().c_str());
