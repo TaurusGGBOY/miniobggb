@@ -27,7 +27,8 @@ typedef struct ParserContext {
   Condition conditions[MAX_NUM];
   CompOp comp[MAX_NUM];
   size_t comp_length;
-	char id[MAX_NUM];
+  char id[MAX_NUM];
+  size_t index_length;
 } ParserContext;
 
 //获取子串
@@ -51,6 +52,7 @@ void yyerror(yyscan_t scanner, const char *str)
   context->from_length = 0;
   context->select_length = 0;
   context->value_length = 0;
+  context->index_length = 0;
   context->ssql->sstr.insertion.value_num = 0;
   printf("parse sql failed. error=%s", str);
 }
@@ -231,17 +233,32 @@ desc_table:
     ;
 
 create_index:		/*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
-		{
-			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
-			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7, 0);
-		}
-	|CREATE UNIQUEINDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
-		{
-			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
-			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7, 1);
-		}
+	CREATE INDEX ID ON ID LBRACE ID create_index_attr RBRACE SEMICOLON {
+		CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
+		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list ,$3, $5);
+		CreateIndex c_i;
+		create_index_init_short(&c_i, $7);
+		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		CONTEXT->index_length++;
+	}
+	|CREATE UNIQUEINDEX ID ON ID LBRACE ID RBRACE SEMICOLON {
+		CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index unique";
+		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list, $3, $5);
+		CreateIndex c_i;
+		create_index_init(&c_i, $3, $5, $7, 1);
+		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		CONTEXT->index_length++;
+	}
     ;
+
+create_index_attr:
+	| COMMA ID create_index_attr{
+		CreateIndex c_i;
+		create_index_init_short(&c_i, $2);
+		create_index_list_append(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		CONTEXT->index_length++;
+	}
+	;
 
 drop_index:			/*drop index 语句的语法解析树*/
     DROP INDEX ID  SEMICOLON 

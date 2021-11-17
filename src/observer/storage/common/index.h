@@ -63,10 +63,12 @@ public:
 
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
-
+  RC init(const IndexMeta &index_meta, std::vector<const FieldMeta*> field_meta_list);
 protected:
   IndexMeta   index_meta_;
   FieldMeta   field_meta_;    /// 当前实现仅考虑一个字段的索引
+  int field_num;
+  const FieldMeta* field_meta_list_[MAX_NUM];
 };
 
 class IndexScanner {

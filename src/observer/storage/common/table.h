@@ -68,6 +68,8 @@ public:
 
   RC create_index(Trx *trx, const char *index_name, const char *attribute_name, bool is_unique);
 
+  RC create_index_by_list(Trx *trx, const char *index_name, CreateIndexList create_index_list);
+
   DiskBufferPool* get_buffer_pool() {
     return data_buffer_pool_;
   }
@@ -94,6 +96,7 @@ private:
   RC scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter *filter, int limit, void *context, RC (*record_reader)(Record *record, void *context));
   IndexScanner *find_index_for_scan(const ConditionFilter *filter);
   IndexScanner *find_index_for_scan(const DefaultConditionFilter &filter);
+  IndexScanner *find_index_for_scan_by_list(std::vector<std::string> filter_attr_list);
 
   RC insert_record(Trx *trx, Record *record);
   RC delete_record(Trx *trx, Record *record);

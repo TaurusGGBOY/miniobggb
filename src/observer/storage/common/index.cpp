@@ -19,3 +19,11 @@ RC Index::init(const IndexMeta &index_meta, const FieldMeta &field_meta) {
   field_meta_ = field_meta;
   return RC::SUCCESS;
 }
+
+RC Index::init(const IndexMeta &index_meta, std::vector<const FieldMeta*> field_meta_list){
+  index_meta_ = index_meta;
+  for(int i = 0;i<field_meta_list.size();i++){
+    field_meta_list_[i] = field_meta_list[i];
+  }
+  return RC::SUCCESS;
+}
