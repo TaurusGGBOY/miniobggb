@@ -22,6 +22,8 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <ostream>
 #include <storage/common/date.h>
+#include "sql/parser/parse.h"
+#include "common/log/log.h"
 
 class TupleValue {
 public:
@@ -30,6 +32,9 @@ public:
 
   virtual void to_string(std::ostream &os) const = 0;
   virtual int compare(const TupleValue &other) const = 0;
+  virtual AttrType get_type() const = 0;
+  virtual void plus(const TupleValue& right);
+  virtual void compare_and_set(const TupleValue& right,bool greater);
 private:
 };
 
@@ -42,9 +47,42 @@ public:
     os << value_;
   }
 
-  int compare(const TupleValue &other) const override {
-    const IntValue & int_other = (const IntValue &)other;
-    return value_ - int_other.value_;
+  int compare(const TupleValue &other) const override;
+  
+
+  AttrType get_type() const override{
+    return AttrType::INTS;
+  }
+
+  int get_value() const{
+    return this->value_;
+  }
+
+  void compare_and_set(const TupleValue& right,bool greater){
+    if(right.get_type()==INTS){
+      const IntValue& int_right = (const IntValue &)right;
+      if(greater)
+        this->value_=std::max(int_right.value_,this->value_);
+      else
+        this->value_=std::min(int_right.value_,this->value_);
+
+    }
+    else
+      LOG_ERROR("Unsupported type");
+  }
+
+  void set_value(int value){
+    this->value_ = value;
+  }
+
+  void plus(const TupleValue& right){
+    //类型校验在check multi table condition中保证
+    if(right.get_type()==INTS){
+      const IntValue& int_right = (const IntValue &)right;
+      this->value_+=int_right.value_;
+    }
+    else
+      LOG_ERROR("Unsupported plus");
   }
 
 private:
@@ -73,9 +111,40 @@ public:
     os << s;
   }
 
+  float get_value() const{
+    return this->value_;
+  }
+
+  void set_value(float value){
+    this->value_ = value;
+  }
+
+  void compare_and_set(const TupleValue& right,bool greater){
+    if(right.get_type()==FLOATS){
+      const FloatValue& float_right = (const FloatValue &)right;
+      if(greater)
+        this->value_=std::max(float_right.value_,this->value_);
+      else
+        this->value_=std::min(float_right.value_,this->value_);
+
+    }
+    else
+      LOG_ERROR("Unsupported type");
+  }
+
   int compare(const TupleValue &other) const override {
-    const FloatValue & float_other = (const FloatValue &)other;
-    float result = value_ - float_other.value_;
+    float result;
+    if(other.get_type()==FLOATS){
+      const FloatValue & float_other = (const FloatValue &)other;
+      result = value_ - float_other.value_;
+    }
+    else if(other.get_type()==INTS){
+      const IntValue& int_other = (const IntValue &)other;
+      result = value_ - (float)int_other.get_value();
+    }
+    else{
+      LOG_ERROR("Unsupported compare");
+    }
     if (result > 0) { // 浮点数没有考虑精度问题
       return 1;
     }
@@ -84,6 +153,25 @@ public:
     }
     return 0;
   }
+
+  AttrType get_type() const override{
+    return AttrType::FLOATS;
+  }
+
+  void plus(const TupleValue& right){
+    //类型校验在check multi table condition中保证
+    if(right.get_type()==FLOATS){
+      const FloatValue& float_right = (const FloatValue &)right;
+      this->value_+=float_right.value_;
+    }
+    else if(right.get_type()==INTS){
+      const IntValue& int_right = (const IntValue &)right;
+      this->value_+=int_right.get_value();
+    }
+    else
+      LOG_ERROR("Unsupported plus");
+  }
+
 private:
   float value_;
 };
@@ -103,6 +191,27 @@ public:
     const StringValue &string_other = (const StringValue &)other;
     return strcmp(value_.c_str(), string_other.value_.c_str());
   }
+  AttrType get_type() const override{
+    return AttrType::CHARS;
+  }
+
+  std::string get_value() const{
+    return this->value_;
+  }
+
+  void compare_and_set(const TupleValue& right,bool greater){
+    if(right.get_type()==CHARS){
+      const StringValue& str_right = (const StringValue &)right;
+      if(greater)
+        this->value_=std::max(str_right.value_,this->value_);
+      else
+        this->value_=std::min(str_right.value_,this->value_);
+
+    }
+    else
+      LOG_ERROR("Unsupported type");
+  }
+
 private:
   std::string value_;
 };
@@ -120,6 +229,10 @@ public:
   int compare(const TupleValue &other) const override {
     const TextValue &string_other = (const TextValue &)other;
     return strcmp(value_.c_str(), string_other.value_.c_str());
+  }
+
+  AttrType get_type() const override{
+    return TEXT;
   }
 private:
   std::string value_;
@@ -143,6 +256,27 @@ public:
     return value_ - int_other.value_;
   }
 
+  int get_value() const{
+    return this->value_;
+  }
+
+  void compare_and_set(const TupleValue& right,bool greater){
+    if(right.get_type()==DATES){
+      const DateValue& date_right = (const DateValue &)right;
+      if(greater)
+        this->value_=std::max(date_right.value_,this->value_);
+      else
+        this->value_=std::min(date_right.value_,this->value_);
+
+    }
+    else
+      LOG_ERROR("Unsupported type");
+  }
+
+  AttrType get_type() const override{
+    return AttrType::DATES;
+  }
+
 private:
   int value_;
 };
@@ -159,6 +293,10 @@ public:
 
   int compare(const TupleValue &other) const override {
     return -1;
+  }
+
+  AttrType get_type() const override{
+    return AttrType::NULLS;
   }
 
 private:

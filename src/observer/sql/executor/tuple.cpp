@@ -742,3 +742,179 @@ std::string RecordAggregater::schema_field_name(const char *attr_name,enum Aggre
 TupleSet* RecordAggregater::get_tupleset(){
   return &tupleset;
 }
+
+std::string GroupTupleSet::schema_field_name(const char *attr_name,enum AggregationTypeFlag flag){
+  std::string aggtypeWithattr;
+  switch (flag)
+  {
+  case ATF_MAX:
+    aggtypeWithattr+="max";
+    break;
+  case ATF_MIN:
+    aggtypeWithattr+="min";
+    break;
+  case ATF_SUM:
+    aggtypeWithattr+="sum";
+    break;
+  case ATF_COUNT:
+    aggtypeWithattr+="count";
+    break;
+  case ATF_AVG:
+    aggtypeWithattr+="avg";
+    break;
+  case ATF_NULL:
+    break;
+  }
+
+  aggtypeWithattr+="(";
+  aggtypeWithattr+=attr_name;
+  aggtypeWithattr+=")";
+  return aggtypeWithattr;
+}
+
+GroupTupleSet::GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order):input_(input),order_(order){
+  for(int i =0;i!=select->attr_num;i++){
+    if(select->attributes[i].agg_type==ATF_NULL)
+      by_index.push_back(i);
+    else
+      agg_index.push_back({i,select->attributes[i].agg_type});
+    switch (select->attributes[i].agg_type)
+    {
+    //count和sum固定类型值
+    case ATF_COUNT:
+      schema_.add(INTS,select->attributes[i].relation_name,schema_field_name(select->attributes[i].attribute_name,ATF_COUNT).c_str());
+      break;
+    case ATF_AVG:
+      schema_.add(FLOATS,select->attributes[i].relation_name,schema_field_name(select->attributes[i].attribute_name,ATF_AVG).c_str());
+      break;
+    default:
+      schema_.add(input_->get_schema().field(order_[i].second).type(),select->attributes[i].relation_name,
+      schema_field_name(select->attributes[i].attribute_name,select->attributes[i].agg_type).c_str());
+      break;
+    }
+  }
+}
+
+void GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
+  //用第一个tuple的值初始化聚合结果字段
+  for(int i =0;i!=schema_.size();i++){
+    switch (schema_.field(i).type())
+    {
+    case FLOATS:
+      init->add((float)0);
+      ((FloatValue&)init->get(i)).plus(ref.get(order_[i].second));
+      break;
+    case INTS:
+      init->add((int)0);
+      ((IntValue&)init->get(i)).plus(ref.get(order_[i].second));
+      break;
+    case CHARS:
+      init->add(((const StringValue&)ref.get(order_[i].second)).get_value().c_str(),((const StringValue&)ref.get(i)).get_value().size());
+      break;
+    case DATES:
+      init->add_date(((const DateValue&)ref.get(order_[i].second)).get_value());
+      break;
+    default:
+      LOG_ERROR("Unsupportted agg type!");
+      break;
+    }
+  }
+}
+
+RC GroupTupleSet::aggregates(){
+  for(int i =0;i!=input_->size();i++){
+    const Tuple& row = input_->get(i);
+    std::string key = get_key(row);
+    if(!this->groups.count(key)){
+      groups[key] = new Tuple;
+      count[key] = 1;
+      init_tuple(groups[key],row);
+    }
+    else{
+      Tuple* target = groups[key]; 
+      for(int j=0;j!=this->agg_index.size();j++){
+        count[key]++;
+        switch (agg_index[j].second)
+        {
+        case ATF_SUM:
+        case ATF_AVG:
+          const_cast<TupleValue &>(target->get(agg_index[j].first)).plus(row.get(order_[agg_index[j].first].second));
+          break;
+        case ATF_MAX:
+          const_cast<TupleValue &>(target->get(agg_index[j].first)).compare_and_set(row.get(order_[agg_index[j].first].second),true);
+          break;
+        case ATF_MIN:
+          const_cast<TupleValue &>(target->get(agg_index[j].first)).compare_and_set(row.get(order_[agg_index[j].first].second),false);
+          break;
+        default:
+          //ATF_COUNT
+          break;
+        }
+      }
+    }
+  }
+  for(auto it = groups.begin();it!=groups.end();it++){
+    Tuple* grouprow = it->second;
+    for(int j=0;j!=this->agg_index.size();j++){
+      switch (agg_index[j].second)
+        {
+        case ATF_COUNT:{
+          IntValue& iv = (IntValue&)grouprow->get(agg_index[j].first);
+          iv.set_value(count[get_key(*grouprow)]);
+          break;
+        }
+        case ATF_AVG:{
+          FloatValue& fv = (FloatValue&)grouprow->get(agg_index[j].first);
+          fv.set_value(fv.get_value()/count[get_key(*grouprow)]);
+          break;
+        }
+        default:
+          break;
+        }
+    }
+  }
+  return RC::SUCCESS;
+}
+
+std::string GroupTupleSet::get_key(const Tuple& row){
+  std::ostringstream stream;
+  for(int i : this->by_index){
+    row.get(i).to_string(stream);
+    stream<<"|";
+  }
+  return stream.str();
+}
+RC GroupTupleSet::to_value(Value* value){
+  if(groups.size()!=1){
+    LOG_ERROR("Get %d groups",groups.size());
+    return RC::ABORT;
+  }
+  Tuple* row = groups.begin()->second;
+
+  if(row->size()!=1){
+    LOG_ERROR("Get %d field",row->size());
+    return RC::ABORT;
+  }
+
+  value->type = row->get(0).get_type();
+  switch (value->type)
+  {
+  case INTS:
+    value->data = new int(((const IntValue&)row->get(0)).get_value());
+    break;
+  case FLOATS:
+    value->data = new float(((const FloatValue&)row->get(0)).get_value());
+    break;
+  case CHARS:
+    value->data=strdup(((const StringValue&)row->get(0)).get_value().c_str());
+    break;
+  case DATES:
+    value->data = new int(((const DateValue&)row->get(0)).get_value());
+    break;
+  default:
+    LOG_ERROR("Unsupported type");
+    return RC::ABORT;
+    break;
+  }
+  return RC::SUCCESS;
+}

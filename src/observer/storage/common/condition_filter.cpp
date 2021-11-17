@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/bitmap.h"
 #include "sql/executor/tuple.h"
 #include "storage/default/default_handler.h"
+#include "sql/executor/execute_stage.h"
 
 using namespace common;
 
@@ -489,7 +490,7 @@ static RC record_reader_aggregate_adapter(Record* record,void* context){
 //提供在查询条件中将聚合字段作为返回值,返回一个标量
 RC ConditionSubQueryhandler::aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
                     Value* value_,CompositeConditionFilter* filter){
-    AggregatesField field{attr_name,flag};
+    AggregatesField field{nullptr,attr_name,flag};
     RecordAggregater aggregater(*table);
     RC rc = aggregater.set_field(&field,1);
     if(rc !=SUCCESS)
@@ -505,20 +506,14 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
   RC rc = RC::SUCCESS;
   for(size_t i=0;i!=aggregate->condition_num;i++){
     if(aggregate->conditions[i].left_agg_value!=nullptr){
-      // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].left_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].left_agg_value,&aggregate->conditions[i].left_value);
-      // if(aggregate->conditions[i].left_value.type==INTS)
-      //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].left_value.data);
     }
     if(rc!=RC::SUCCESS){
       LOG_TRACE("error");
       return rc;
     }
     if(aggregate->conditions[i].right_agg_value!=nullptr){
-      // LOG_DEBUG("The field name of subagg is %s",aggregate->conditions[i].right_agg_value->field->attribute_name);
       rc = aggregate_to_value(aggregate->conditions[i].right_agg_value,&aggregate->conditions[i].right_value);
-      // if(aggregate->conditions[i].right_value.type==INTS)
-      //   LOG_DEBUG("get value %d",*(int*)aggregate->conditions[i].right_value.data);
     }
     if(rc!=RC::SUCCESS){
       LOG_TRACE("error");
@@ -535,24 +530,33 @@ RC ConditionSubQueryhandler::aggregate_to_value(Aggregates* aggregate, Value* va
     LOG_WARN("get field num %d\n",aggregate->field_num);
     return RC::SCHEMA_FIELD_REDUNDAN;
   }
-  Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name);
-  if (nullptr == table) {
-    LOG_WARN("No such table [%s] in db [%s]", aggregate->relation_name, db_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
-  }
-  CompositeConditionFilter condition_filter;
-  rc = condition_filter.init(*table,aggregate->conditions,aggregate->condition_num);
-  if(rc!=RC::SUCCESS){
-     LOG_TRACE("error");
-      return rc;
+  if(aggregate->relation_num==1){
+    Table* table = DefaultHandler::get_default().find_table(db_name,aggregate->relation_name[0]);
+    if (nullptr == table) {
+      LOG_WARN("No such table [%s] in db [%s]", aggregate->relation_name, db_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
     }
-  rc = aggregate_value(trx,table,aggregate->field->attribute_name,aggregate->field->aggregation_type,value,&condition_filter);
-  if(rc!=RC::SUCCESS){
+    CompositeConditionFilter condition_filter;
+    rc = condition_filter.init(*table,aggregate->conditions,aggregate->condition_num);
+    if(rc!=RC::SUCCESS){
       LOG_TRACE("error");
-      return rc;
-    }
-  LOG_TRACE("Out");
-  return rc;
+        return rc;
+      }
+    rc = aggregate_value(trx,table,aggregate->field->attribute_name,aggregate->field->aggregation_type,value,&condition_filter);
+    if(rc!=RC::SUCCESS){
+        LOG_TRACE("error");
+        return rc;
+      }
+    LOG_TRACE("Out");
+    return rc;
+  }
+  else{
+    LOG_TRACE("aggregate multiple table");
+    rc = multi_table_agg_to_value(trx,db_name,aggregate,value);
+
+    return rc;
+  }
+  
   
 }
 

@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/seda/stage.h"
 #include "sql/parser/parse.h"
 #include "rc.h"
+#include "storage/trx/trx.h"
 
 class SessionEvent;
 
@@ -45,5 +46,7 @@ private:
   Stage *default_storage_stage_ = nullptr;
   Stage *mem_storage_stage_ = nullptr;
 };
+
+RC multi_table_agg_to_value(Trx* trx,const char* db,Aggregates* agg,Value* value);
 
 #endif //__OBSERVER_SQL_EXECUTE_STAGE_H__

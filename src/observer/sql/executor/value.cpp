@@ -7,3 +7,33 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
+#include "sql/executor/value.h"
+
+int IntValue::compare(const TupleValue &other) const {
+    float result;
+    if(other.get_type()==FLOATS){
+      const FloatValue & float_other = (const FloatValue &)other;
+      result = (float)value_ - float_other.get_value();
+    }
+    else if(other.get_type()==INTS){
+      const IntValue& int_other = (const IntValue &)other;
+      result = value_ - int_other.get_value();
+    }
+    else{
+      LOG_ERROR("Unsupported compare");
+    }
+    if (result > 0) { // 浮点数没有考虑精度问题
+      return 1;
+    }
+    if (result < 0) {
+      return -1;
+    }
+    return 0;
+  }
+void TupleValue::plus(const TupleValue& right){
+  LOG_ERROR("never should use");
+}
+
+void TupleValue::compare_and_set(const TupleValue& right, bool greater){
+  LOG_ERROR("never should use");
+}

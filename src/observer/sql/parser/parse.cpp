@@ -52,6 +52,7 @@ void order_attr_destroy(OrderAttr *relation_attr) {
 }
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name) {
+  relation_attr->agg_type = ATF_NULL;
   if (relation_name != nullptr) {
     relation_attr->relation_name = strdup(relation_name);
   } else {
@@ -424,20 +425,25 @@ void updates_destroy(Updates *updates) {
 void aggregates_init(Aggregates *aggregates,const char *relation_name, 
                       Condition conditions[], size_t condition_num)
 {
+  //aggregates暂时不支持语法解析中的多表
   LOG_TRACE("Enter");
   //CONTEXT的空间在yacc中分配，此函数需分配aggregate中的指针
-  aggregates->relation_name = strdup(relation_name);
+  aggregates->relation_name[0] = strdup(relation_name);
+  aggregates->relation_num = 1;
   assert(condition_num <= sizeof(aggregates->conditions)/sizeof(aggregates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
     //aggregates->conditions[i] = conditions[i];
     condition_copy(&aggregates->conditions[i],&conditions[i]);
   }
   aggregates->condition_num = condition_num;
+  aggregates_check_implicit_relation(aggregates);
   LOG_TRACE("Out");
 }
 void aggregates_copy_init(Aggregates* target,Aggregates* object){
-  LOG_DEBUG("field name %s relation name %s",object->field[0].attribute_name,object->relation_name);
-  target->relation_name = strdup(object->relation_name);
+  for(int i=0;i!=object->relation_num;i++){
+      target->relation_name[i] = strdup(object->relation_name[i]);
+  }
+  target->relation_num = object->relation_num;
   for (size_t i = 0; i < object->condition_num; i++) {
     //target->conditions[i] = object->conditions[i];
     condition_copy(&target->conditions[i],&object->conditions[i]);
@@ -445,16 +451,19 @@ void aggregates_copy_init(Aggregates* target,Aggregates* object){
   for(size_t i=0;i!=object->field_num;i++){
     target->field[i].aggregation_type = object->field[i].aggregation_type;
     target->field[i].attribute_name = strdup(object->field[i].attribute_name);
+    target->field[i].relation_name = strdup(object->field[i].relation_name);
+
   }
   target->condition_num = object->condition_num;
   target->field_num = object->field_num;
-  LOG_DEBUG("field name %s relation name %s",target->field[0].attribute_name,target->relation_name);
 }
 
 
 void aggregates_destroy(Aggregates *aggregates){
   free(aggregates->relation_name);
-  aggregates->relation_name = nullptr;
+  for(size_t i =0;i!=aggregates->relation_num;i++){
+    aggregates->relation_name[i] = nullptr;
+  }
   for (size_t i = 0; i < aggregates->condition_num; i++) {
     condition_destroy(&aggregates->conditions[i]);
   }
@@ -469,12 +478,16 @@ void aggregates_destroy(Aggregates *aggregates){
 void aggregates_append_field_itoa(Aggregates *aggregates,int number,
                            const char* type_name){
     std::string attr_name = std::to_string(number);
-    aggregates_append_field(aggregates,attr_name.c_str(),type_name);
+    aggregates_append_field(aggregates,nullptr,attr_name.c_str(),type_name);
 }
-void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,
+void aggregates_append_field(Aggregates *aggregates,const char* relation_name,const char *attribute_name,
                            const char* type_name)
 {
   aggregates->field[aggregates->field_num].attribute_name = strdup(attribute_name);
+  if(relation_name!=nullptr)
+    aggregates->field[aggregates->field_num].relation_name = strdup(relation_name);
+  else
+    relation_name = nullptr;
   std::string typestr(type_name,strlen(type_name));
   if(std::regex_match(typestr,std::regex("[Mm][Aa][Xx]"))){
     aggregates->field[aggregates->field_num].aggregation_type = ATF_MAX;
@@ -497,6 +510,41 @@ void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,
     LOG_ERROR("failed to parse aggregation type of %s(%s)!",typestr.c_str(),attribute_name);
   }
   aggregates->field_num++;
+}
+
+void aggregates_append_relation(Aggregates *aggregates, const char *relation_name){
+  aggregates->relation_name[aggregates->relation_num++] = strdup(relation_name);
+}
+
+void aggregates_check_implicit_relation(Aggregates *aggregates){
+  //检查有没有非显式的出现在condition中的额外的表名
+  std::unordered_set<std::string> rec;
+  for(size_t i=0;i!=aggregates->relation_num;i++){
+    std::string s = aggregates->relation_name[i];
+    rec.insert(s);
+  }
+  for(size_t i =0;i!=aggregates->condition_num;i++){
+    if(aggregates->conditions[i].left_is_attr){
+      if(aggregates->conditions[i].left_attr.relation_name!=nullptr){
+        std::string rel_name = aggregates->conditions[i].left_attr.relation_name;
+        if(!rec.count(rel_name)){
+          LOG_DEBUG("Found implicit relation %s",rel_name.c_str());
+          aggregates_append_relation(aggregates,aggregates->conditions[i].left_attr.relation_name);
+          rec.insert(rel_name);
+        }
+      }
+    }
+    if(aggregates->conditions[i].right_is_attr){
+      if(aggregates->conditions[i].right_attr.relation_name!=nullptr){
+        std::string rel_name = aggregates->conditions[i].right_attr.relation_name;
+        if(!rec.count(rel_name)){
+          LOG_DEBUG("Found implicit relation %s",rel_name.c_str());
+          aggregates_append_relation(aggregates,aggregates->conditions[i].right_attr.relation_name);
+          rec.insert(rel_name);
+        }
+      }
+    }
+  }
 }
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info) {

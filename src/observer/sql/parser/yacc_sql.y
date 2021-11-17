@@ -468,10 +468,10 @@ on_list:
 
 agg_field: 
 	AGGREGATE LBRACE ID RBRACE agg_field_list {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$3,$1);
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,$3,$1);
 	}
 	| AGGREGATE LBRACE STAR RBRACE agg_field_list {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",$1);
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",$1);
 	}
 	| AGGREGATE LBRACE NUMBER RBRACE agg_field_list {
 		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,$3,$1);
@@ -480,10 +480,10 @@ agg_field:
 agg_field_list:
 	/* empty */
 	| COMMA AGGREGATE LBRACE ID RBRACE agg_field_list{
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,$4,$2);
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,$4,$2);
 	}
 	| COMMA AGGREGATE LBRACE STAR RBRACE agg_field_list {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",$2);
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",$2);
 	}
 	| COMMA AGGREGATE LBRACE NUMBER RBRACE agg_field_list {
 		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,$4,$2);
@@ -612,13 +612,13 @@ sub_in_select:
 	;
 sub_agg_field:
 	AGGREGATE LBRACE ID RBRACE {
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$1);
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,$3,$1);
 	}
 	| AGGREGATE LBRACE ID DOT ID RBRACE{
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$5,$1);
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$5,$1);
 	}
 	| AGGREGATE LBRACE STAR RBRACE {
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,"*",$1);
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,"*",$1);
 	}
 	| AGGREGATE LBRACE NUMBER RBRACE {
 		aggregates_append_field_itoa(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,$3,$1);

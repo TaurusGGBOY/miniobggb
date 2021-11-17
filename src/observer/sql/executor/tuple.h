@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table_meta.h"
 #include "storage/common/record_manager.h"
 #include<unordered_set>
+#include<unordered_map>
 
 class Table;
 
@@ -113,6 +114,10 @@ public:
   void clear() {
     fields_.clear();
   }
+
+  int size() const{
+    return fields_.size();
+  }
   void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& order) const;
   void print(std::ostream &os, bool table_name) const;
 public:
@@ -187,6 +192,26 @@ private:
   std::vector<Tuple> tuples_;
   TupleSchema schema_;
 };
+
+class GroupTupleSet{
+  //支持多表聚合和group by
+public:
+  GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order_);
+  std::string schema_field_name(const char *attr_name,enum AggregationTypeFlag flag);
+  std::string get_key(const Tuple& row);
+  RC aggregates();
+  void init_tuple(Tuple* init, const Tuple& ref);
+  RC to_value(Value* value);
+private:
+  std::unordered_map<std::string,Tuple*> groups;
+  std::unordered_map<std::string,int> count;
+  TupleSchema schema_;
+  std::vector<int> by_index;
+  std::vector<std::pair<int,AggregationTypeFlag>> agg_index;
+  TupleSet* input_;
+  const std::vector<std::pair<int,int>>& order_;
+};
+
 
 class TupleRecordConverter {
 public:
