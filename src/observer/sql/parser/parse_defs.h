@@ -85,7 +85,7 @@ typedef struct _Value {
   //     else if(type==INTS && right.type==FLOATS){
   //       *(int*)data += *(float*)right.data;
   //     }else{
-  //       LOG_ERROR("Unsupported attrtype convert and plus");
+  //       LOG_ERROR("Unsupported attrtype cCreateIndexListonvert and plus");
   //     }
   //   }
   // };
@@ -200,6 +200,13 @@ typedef struct {
   int unique;
 } CreateIndex;
 
+typedef struct{
+  size_t index_num;
+  CreateIndex index[MAX_NUM];
+  const char *index_name;
+  const char *relation_name;
+}CreateIndexList;
+
 // struct of  drop_index
 typedef struct {
   const char *index_name;  // Index name
@@ -245,12 +252,12 @@ union Queries {
   Updates update;
   CreateTable create_table;
   DropTable drop_table;
-  CreateIndex create_index;
   DropIndex drop_index;
   DescTable desc_table;
   LoadData load_data;
   Aggregates aggregation;
   char *errors;
+  CreateIndexList create_index_list;
 };
 typedef union Queries SubQuries;
 
@@ -341,9 +348,14 @@ void create_table_destroy(CreateTable *create_table);
 void drop_table_init(DropTable *drop_table, const char *relation_name);
 void drop_table_destroy(DropTable *drop_table);
 
-void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name, int unique);
+void create_index_init(CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name, int unique);
 void create_index_destroy(CreateIndex *create_index);
+void create_index_list_append(CreateIndexList *create_index_list, CreateIndex *create_index);
+void create_index_set_first(CreateIndexList *create_index_list, CreateIndex *create_index);
+void create_index_list_init(CreateIndexList *create_index_list, const char* index_name, const char *relation_name);
+void create_index_list_destroy(CreateIndexList *create_index_list);
+void create_index_init_short(CreateIndex *create_index, const char *attr_name);
+
 
 void drop_index_init(DropIndex *drop_index, const char *index_name);
 void drop_index_destroy(DropIndex *drop_index);

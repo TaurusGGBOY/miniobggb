@@ -741,6 +741,97 @@ RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_n
   return rc;
 }
 
+RC Table::create_index_by_list(Trx *trx, const char *index_name, CreateIndexList create_index_list) {
+  LOG_TRACE("enter");
+  std::vector<std::string> name_vec;
+  for (int i=0;i< create_index_list.index_num;i++) {
+    auto it = create_index_list.index[i];
+      if (it.attribute_name == nullptr || common::is_blank(it.attribute_name)) {
+          return RC::INVALID_ARGUMENT;
+      }
+      name_vec.push_back(it.attribute_name);
+  }
+
+  if (index_name == nullptr || common::is_blank(index_name)) {
+      return RC::INVALID_ARGUMENT;
+  }
+  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_list(name_vec)!=nullptr) {
+      return RC::SCHEMA_INDEX_EXIST;
+  }
+  std::vector<const FieldMeta *> field_vec;
+  for(auto it : name_vec){
+    const FieldMeta *field_meta = table_meta_.field(it.c_str());
+    if (!field_meta) {
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+    field_vec.push_back(field_meta);
+  }
+
+  IndexMeta new_index_meta;
+  RC rc = new_index_meta.init(index_name, name_vec);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  BplusTreeIndex *index = new BplusTreeIndex();
+  std::string index_file = index_data_file(base_dir_.c_str(), name(), index_name);
+  rc = index->create(index_file.c_str(), new_index_meta, field_vec);
+  if (rc != RC::SUCCESS) {
+    delete index;
+    LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));
+    return rc;
+  }
+
+  LOG_INFO("in not unique create index");
+  IndexInserter index_inserter(index, this);
+  rc = scan_record(trx, nullptr, -1, &index_inserter, insert_index_record_reader_adapter);
+
+  if (rc != RC::SUCCESS) {
+    // rollback
+    delete index;
+    remove(index_file.c_str());
+    LOG_ERROR("Failed to insert index to all records. table=%s, rc=%d:%s", name(), rc, strrc(rc));
+    return rc;
+  }
+  LOG_INFO("index create success");
+  indexes_.push_back(index);
+
+  TableMeta new_table_meta(table_meta_);
+  rc = new_table_meta.add_index(new_index_meta);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to add index (%s) on table (%s). error=%d:%s", index_name, name(), rc, strrc(rc));
+    return rc;
+  }
+
+  // 创建元数据临时文件
+  std::string tmp_file = table_meta_file(base_dir_.c_str(), name()) + ".tmp";
+  std::fstream fs;
+  fs.open(tmp_file, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+  if (!fs.is_open()) {
+    LOG_ERROR("Failed to open file for write. file name=%s, errmsg=%s", tmp_file.c_str(), strerror(errno));
+    return RC::IOERR; // 创建索引中途出错，要做还原操作
+  }
+  if (new_table_meta.serialize(fs) < 0) {
+    LOG_ERROR("Failed to dump new table meta to file: %s. sys err=%d:%s", tmp_file.c_str(), errno, strerror(errno));
+    return RC::IOERR;
+  }
+  fs.close();
+
+  // 覆盖原始元数据文件
+  std::string meta_file = table_meta_file(base_dir_.c_str(), name());
+  int ret = rename(tmp_file.c_str(), meta_file.c_str());
+  if (ret != 0) {
+    LOG_ERROR("Failed to rename tmp meta file (%s) to normal meta file (%s) while creating index (%s) on table (%s). " \
+              "system error=%d:%s", tmp_file.c_str(), meta_file.c_str(), index_name, name(), errno, strerror(errno));
+    return RC::IOERR;
+  }
+
+  table_meta_.swap(new_table_meta);
+
+  LOG_INFO("add a new index (%s) on the table (%s)", index_name, name());
+  return rc;
+}
+
 class RecordUpdater{
   //仅支持单字段更新
   public:
@@ -1028,6 +1119,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
     if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
       continue;
     }
+
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       break;
@@ -1099,7 +1191,6 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
 }
 
 IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
-  // TODO stop index temperory
   if (nullptr == filter) {
     return nullptr;
   }
@@ -1116,7 +1207,42 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
     return find_index_for_scan(*default_condition_filter);
   }
 
+  // TODO scan filter see if 
   const CompositeConditionFilter *composite_condition_filter = dynamic_cast<const CompositeConditionFilter *>(filter);
+  std::vector<std::string> filter_attr_list;
+  if (composite_condition_filter != nullptr) {
+    int filter_num = composite_condition_filter->filter_num();
+    for (int i = 0; i < filter_num; i++) {
+        const DefaultConditionFilter* temp =
+            dynamic_cast<const DefaultConditionFilter*>(
+                &composite_condition_filter->filter(i));
+        if (temp->left().is_attr) {
+            const FieldMeta* field_meta = table_meta_.find_field_by_offset(temp->left().attr_offset);
+            if (nullptr == field_meta) {
+                LOG_PANIC("Cannot find field by offset %d. table=%s",
+                          temp->left().attr_offset, name());
+                return nullptr;
+            }
+            filter_attr_list.push_back(field_meta->name());
+        } else if (temp->right().is_attr) {
+          const FieldMeta* field_meta = table_meta_.find_field_by_offset(temp->right().attr_offset);
+            if (nullptr == field_meta) {
+                LOG_PANIC("Cannot find field by offset %d. table=%s",
+                          temp->left().attr_offset, name());
+                return nullptr;
+            }
+            filter_attr_list.push_back(field_meta->name());
+            filter_attr_list.push_back(nullptr);
+        } else {
+            filter_attr_list.clear();
+            break;
+        }
+    }
+  }
+  IndexScanner *scanner= find_index_for_scan_by_list(filter_attr_list);
+  if (scanner != nullptr) {
+    return scanner; 
+  }
   if (composite_condition_filter != nullptr) {
     int filter_num = composite_condition_filter->filter_num();
     for (int i = 0; i < filter_num; i++) {
@@ -1126,6 +1252,11 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
       }
     }
   }
+  return nullptr;
+}
+
+IndexScanner *Table::find_index_for_scan_by_list(std::vector<std::string> filter_attr_list){
+  // TODO
   return nullptr;
 }
 

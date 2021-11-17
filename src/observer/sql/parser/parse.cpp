@@ -522,12 +522,39 @@ void drop_table_destroy(DropTable *drop_table) {
   drop_table->relation_name = nullptr;
 }
 
+void create_index_list_append(CreateIndexList *create_index_list, CreateIndex *create_index) {
+  create_index_list->index[create_index_list->index_num+1] = *create_index;
+  create_index_list->index_num++;
+}
+
+void create_index_set_first(CreateIndexList *create_index_list, CreateIndex *create_index) {
+  create_index_list->index[0] = *create_index;
+  create_index_list->index_num++;
+}
+
+void create_index_list_init(CreateIndexList *create_index_list, const char* index_name, const char *relation_name) {
+  create_index_list->index_name = strdup(index_name);
+  create_index_list->relation_name = strdup(relation_name);
+}
+
+void create_index_list_destroy(CreateIndexList *create_index_list) {
+  for (size_t i = 0; i < create_index_list->index_num; i++) {
+    create_index_destroy(&create_index_list->index[i]);
+  }
+  create_index_list->index_num = 0;
+}
+
 void create_index_init(CreateIndex *create_index, const char *index_name, 
                        const char *relation_name, const char *attr_name, int unique) {
   create_index->index_name = strdup(index_name);
   create_index->relation_name = strdup(relation_name);
   create_index->attribute_name = strdup(attr_name);
   create_index->unique = unique;
+}
+
+void create_index_init_short(CreateIndex *create_index, const char *attr_name) {
+  create_index->attribute_name = strdup(attr_name);
+  create_index->unique = 0;
 }
 
 void create_index_destroy(CreateIndex *create_index) {
@@ -625,7 +652,7 @@ void query_reset(Query *query) {
     }
     break;
     case SCF_CREATE_INDEX: {
-      create_index_destroy(&query->sstr.create_index);
+      create_index_list_destroy(&query->sstr.create_index_list);
     }
     break;
     case SCF_DROP_INDEX: {

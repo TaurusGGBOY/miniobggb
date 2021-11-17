@@ -39,6 +39,18 @@ RC IndexMeta::init(const char *name, const FieldMeta &field, int unique) {
   return RC::SUCCESS;
 }
 
+RC IndexMeta::init(const char *name, std::vector<std::string> field_list) {
+    if (nullptr == name || common::is_blank(name)) {
+        return RC::INVALID_ARGUMENT;
+    }
+    name_ = name;
+    for (int i = 0; i<field_list.size();i++){
+      field_list_[i] = field_list[i];
+    }
+    unique_ = 0;
+    return RC::SUCCESS;
+}
+
 void IndexMeta::to_json(Json::Value &json_value) const {
   json_value[FIELD_NAME] = name_;
   json_value[FIELD_FIELD_NAME] = field_;
@@ -91,4 +103,20 @@ void IndexMeta::desc(std::ostream &os) const {
   os << "index name=" << name_
       << ", field=" << field_
       << ", unique=" << unique_;
+}
+
+const int IndexMeta::field_num() const{
+  return field_num_;
+}
+
+  // return 0 if any one is same
+ const int IndexMeta::have_one(std::vector<std::string> field_list) const{
+    for (int i = 0; i < field_list.size(); i++) {
+        for (int j = 0; j < field_num_; j++) {
+            if (field_list_[j].compare(field_list[i]) == 0) {
+                return 0;
+            }
+        }
+    }
+  return -1;
 }

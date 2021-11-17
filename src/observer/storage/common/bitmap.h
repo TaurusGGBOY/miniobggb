@@ -3,7 +3,6 @@
 
 #include <string>
 
-// TODO if change this util class to others
 class Bitmap
 {
 private:

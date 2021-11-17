@@ -187,6 +187,18 @@ const IndexMeta * TableMeta::find_index_by_field(const char *field) const {
   return nullptr;
 }
 
+const IndexMeta * TableMeta::find_index_by_list(std::vector<std::string> vector) const {
+  for (const IndexMeta &index : indexes_) {
+      if (index.field_num() == 0) {
+          continue;
+      }
+      if (0 == index.have_one(vector)) {
+          return &index;
+      }
+  }
+  return nullptr;
+}
+
 const IndexMeta * TableMeta::index(int i ) const {
   return &indexes_[i];
 }
