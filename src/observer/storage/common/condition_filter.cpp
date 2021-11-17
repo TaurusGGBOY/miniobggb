@@ -351,7 +351,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         return false;
       }
       else{
-        return std::abs(cmp_result) <= 0.001;
+        return std::abs(cmp_result) > 0.001;
       }
     case LESS_THAN:
       if (left_value == nullptr || right_value == nullptr){
