@@ -26,10 +26,10 @@ int IntValue::compare(const TupleValue &other) const {
       LOG_ERROR("Unsupported compare");
     }
     
-    if (result > 0.01) { //浮点数做差在0.01之内都视为相等
+    if (result > 0.0001) { //浮点数做差在0.0001之内都视为相等
       return 1;
     }
-    if (result < -0.01) {
+    if (result < -0.0001) {
       return -1;
     }
     return 0;

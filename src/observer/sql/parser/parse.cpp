@@ -451,7 +451,8 @@ void aggregates_copy_init(Aggregates* target,Aggregates* object){
   for(size_t i=0;i!=object->field_num;i++){
     target->field[i].aggregation_type = object->field[i].aggregation_type;
     target->field[i].attribute_name = strdup(object->field[i].attribute_name);
-    target->field[i].relation_name = strdup(object->field[i].relation_name);
+    if(object->field[i].relation_name!=nullptr)
+      target->field[i].relation_name = strdup(object->field[i].relation_name);
 
   }
   target->condition_num = object->condition_num;

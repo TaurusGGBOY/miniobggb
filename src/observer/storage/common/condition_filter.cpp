@@ -323,6 +323,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         float left = *(float *)left_value;
         float right = *(float *)right_value;
         cmp_result = left - right;
+        LOG_DEBUG("compare %f with %f get %f",left,right,cmp_result);
       } break;
       default: {
       }
@@ -350,7 +351,7 @@ bool DefaultConditionFilter::filter(const Record &rec) const
         return false;
       }
       else{
-        return cmp_result != 0;
+        return std::abs(cmp_result) <= 0.001;
       }
     case LESS_THAN:
       if (left_value == nullptr || right_value == nullptr){
