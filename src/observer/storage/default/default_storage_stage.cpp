@@ -202,12 +202,17 @@ void DefaultStorageStage::handle_event(StageEvent *event) {
     break;
 
   case SCF_CREATE_INDEX: {
-      const CreateIndex &create_index = sql->sstr.create_index;
-      rc = handler_->create_index(current_trx, current_db, create_index.relation_name, 
-                                  create_index.index_name, create_index.attribute_name, create_index.unique);
+    if(sql->sstr.create_index_list.index_num<=1){
+      const CreateIndex &c_i = sql->sstr.create_index_list.index[0];
+      rc = handler_->create_index(current_trx, current_db, sql->sstr.create_index_list.relation_name, 
+                                  sql->sstr.create_index_list.index_name, c_i.attribute_name, c_i.unique);
+      snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
+    }else{
+      rc = handler_->create_index_list(current_trx, current_db, sql->sstr.create_index_list);
       snprintf(response, sizeof(response), "%s\n", rc == RC::SUCCESS ? "SUCCESS" : "FAILURE");
     }
-    break;
+  }
+  break;
 
   case SCF_SHOW_TABLES: {
       Db *db = handler_->find_db(current_db);

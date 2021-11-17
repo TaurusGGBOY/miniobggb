@@ -25,6 +25,10 @@ struct IndexFileHeader {
   PageNum root_page; // 初始时，root_page一定是1
   int node_num;
   int order;
+
+  int attr_num;
+  AttrType attr_list[MAX_NUM];
+  int len_list[MAX_NUM];
 };
 
 struct IndexNode {
@@ -33,6 +37,9 @@ struct IndexNode {
   PageNum parent;
   char *keys;
   RID *rids;
+
+  // TODO should change
+  char* key_list[MAX_NUM];
 };
 
 struct TreeNode {
@@ -57,6 +64,7 @@ public:
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
   RC create(const char *file_name, AttrType attr_type, int attr_length);
+  RC create_by_list(const char *file_name, std::vector<AttrType> attr_vec, std::vector<int> len_vec);
 
   /**
    * 打开名为fileName的索引文件。
@@ -93,6 +101,8 @@ public:
 public:
   RC print();
   RC print_tree();
+  RC insert_entry_multi_index(const char *record, const RID *rid, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
+
 protected:
   RC find_leaf(const char *pkey, PageNum *leaf_page);
   RC insert_into_leaf(PageNum leaf_page, const char *pkey, const RID *rid);
@@ -109,7 +119,7 @@ protected:
 
   RC find_first_index_satisfied(CompOp comp_op, const char *pkey, PageNum *page_num, int *rididx);
   RC get_first_leaf_page(PageNum *leaf_page);
-
+  RC find_leaf_multi_index(const char *pkey, PageNum *leaf_page, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
 private:
   IndexNode *get_index_node(char *page_data) const;
 
@@ -155,6 +165,8 @@ private:
   RC get_next_idx_in_memory(RID *rid);
   RC find_idx_pages();
   bool satisfy_condition(const char *key);
+  bool satisfy_conditions(const char *key);
+  bool satisfy_one_condition(const char *key, AttrType attr_type, const char* value, int len);
 
 private:
   BplusTreeHandler   & index_handler_;
@@ -167,6 +179,11 @@ private:
   int next_index_of_page_handle_ = -1;          // 当前被扫描页面的操作索引
   int index_in_node_ = -1;                      // 当前B+ Tree页面上的key index
   PageNum next_page_num_ = -1;                  // 下一个将要被读入的页面号
+  
+  int condition_num = -1;
+  CompOp comp_ops[MAX_NUM];
+  int offsets[MAX_NUM];
+  const char *values[MAX_NUM];
 };
 
 #endif //__OBSERVER_STORAGE_COMMON_INDEX_MANAGER_H_
