@@ -525,7 +525,6 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *contex
   if (index_scanner != nullptr) {
     return scan_record_by_index(trx, index_scanner, filter, limit, context, record_reader);
   }
-
   RC rc = RC::SUCCESS;
   RecordFileScanner scanner;
   rc = scanner.open_scan(*data_buffer_pool_, file_id_, filter);
@@ -533,7 +532,6 @@ RC Table::scan_record(Trx *trx, ConditionFilter *filter, int limit, void *contex
     LOG_ERROR("failed to open scanner. file id=%d. rc=%d:%s", file_id_, rc, strrc(rc));
     return rc;
   }
-
   int record_count = 0;
   Record record;
   rc = scanner.get_first_record(&record);
@@ -1186,7 +1184,6 @@ IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
   if (nullptr == index) {
     return nullptr;
   }
-
   return index->create_scanner(filter.comp_op(), (const char *)value_cond_desc->value);
 }
 
@@ -1232,13 +1229,13 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
                 return nullptr;
             }
             filter_attr_list.push_back(field_meta->name());
-            filter_attr_list.push_back(nullptr);
         } else {
             filter_attr_list.clear();
             break;
         }
     }
   }
+
   IndexScanner *scanner= find_index_for_scan_by_list(filter_attr_list);
   if (scanner != nullptr) {
     return scanner; 
