@@ -30,9 +30,20 @@ typedef struct {
   char *is_asc;
 } OrderAttr;
 
+enum AggregationTypeFlag{
+  //语法解析生成的token也被定义为标识符，需避免重名
+  ATF_NULL,
+  ATF_SUM,
+  ATF_AVG,
+  ATF_MAX,
+  ATF_MIN,
+  ATF_COUNT
+};
+
 typedef struct {
   char *relation_name;   // relation name (may be NULL) 表名
   char *attribute_name;  // attribute name              属性名
+  enum AggregationTypeFlag agg_type;
 } RelAttr;
 
 typedef enum {
@@ -136,6 +147,11 @@ typedef struct _Condition {
   //std::unordered_set<int>* in_set; This is stored in right_value;
 } Condition;
 
+typedef struct _Groupby{
+  RelAttr* attr[MAX_NUM];
+  size_t attr_num;
+}Groupby;
+
 // struct of select
 typedef struct _Selects {
   size_t    attr_num;               // Length of attrs in Select clause
@@ -215,25 +231,20 @@ typedef struct {
 } LoadData;
 
 
-enum AggregationTypeFlag{
-  //语法解析生成的token也被定义为标识符，需避免重名
-  ATF_SUM,
-  ATF_AVG,
-  ATF_MAX,
-  ATF_MIN,
-  ATF_COUNT
-};
+
 
 typedef struct{
   //聚合的字段以及字段上的聚合类型
+  char* relation_name;
   char* attribute_name;
   enum AggregationTypeFlag aggregation_type;
 }AggregatesField;
 
 typedef struct _Aggregates{
   AggregatesField field[MAX_NUM];
+  size_t    relation_num;           // Length of relations in Fro clause
+  char *    relation_name[MAX_NUM];
   int field_num;
-  char* relation_name;
   size_t condition_num;
   Condition conditions[MAX_NUM];
 }Aggregates;
@@ -332,7 +343,9 @@ void aggregates_init(Aggregates *aggregates,const char *relation_name,Condition 
 void aggregates_copy_init(Aggregates* target,Aggregates* object);
 void aggregates_destroy(Aggregates *aggregates);
 void aggregates_append_field_itoa(Aggregates *aggregates,int number,const char* type_name);
-void aggregates_append_field(Aggregates *aggregates,const char *attribute_name,const char *type_name);
+void aggregates_append_field(Aggregates *aggregates,const char* relation_name,const char *attribute_name,const char *type_name);
+void aggregates_append_relation(Aggregates *aggregates, const char *relation_name);
+void aggregates_check_implicit_relation(Aggregates *aggregates);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);
 void create_table_init_name(CreateTable *create_table, const char *relation_name);

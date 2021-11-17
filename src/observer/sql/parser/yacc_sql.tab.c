@@ -1959,7 +1959,7 @@ yyreduce:
   case 65:
 #line 468 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,(yyvsp[-2].string),(yyvsp[-4].string));
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,(yyvsp[-2].string),(yyvsp[-4].string));
 	}
 #line 1965 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -1967,7 +1967,7 @@ yyreduce:
   case 66:
 #line 471 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",(yyvsp[-4].string));
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",(yyvsp[-4].string));
 	}
 #line 1973 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -1983,7 +1983,7 @@ yyreduce:
   case 69:
 #line 480 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,(yyvsp[-2].string),(yyvsp[-4].string));
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,(yyvsp[-2].string),(yyvsp[-4].string));
 	}
 #line 1989 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -1991,7 +1991,7 @@ yyreduce:
   case 70:
 #line 483 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,"*",(yyvsp[-4].string));
+		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",(yyvsp[-4].string));
 	}
 #line 1997 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -2207,7 +2207,7 @@ yyreduce:
   case 94:
 #line 612 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-1].string),(yyvsp[-3].string));
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,(yyvsp[-1].string),(yyvsp[-3].string));
 	}
 #line 2213 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -2215,7 +2215,7 @@ yyreduce:
   case 95:
 #line 615 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-1].string),(yyvsp[-5].string));
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-3].string),(yyvsp[-1].string),(yyvsp[-5].string));
 	}
 #line 2221 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;
@@ -2223,7 +2223,7 @@ yyreduce:
   case 96:
 #line 618 "yacc_sql.y" /* yacc.c:1646  */
     {
-		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,"*",(yyvsp[-3].string));
+		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,"*",(yyvsp[-3].string));
 	}
 #line 2229 "yacc_sql.tab.c" /* yacc.c:1646  */
     break;

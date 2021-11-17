@@ -296,9 +296,13 @@ bool check_multi_table_condition(TupleSchema& schema,const Selects& selects, std
         }
       }
       //如果比较的类型不同，失败
+      //GROUP BY TODO
       if(schema.field(l_match).type() != schema.field(r_match).type()) {
-        LOG_DEBUG("multi table select:condition value type is not same");
-        return false;
+        if((schema.field(l_match).type()==INTS && schema.field(r_match).type()==FLOATS) ||
+            (schema.field(l_match).type()==FLOATS && schema.field(r_match).type()==INTS))
+            LOG_DEBUG("comparing int with float");
+        else
+          return false;
       }
       //左右两个字段如果一个不存在，返回失败 ,不应该出现
       if(l_match==-1 || r_match==-1) {
@@ -625,20 +629,6 @@ static RC record_reader_aggregate_adapter(Record* record,void* context){
   RecordAggregater &aggregater = *(RecordAggregater*)context;
   return aggregater.update_record(record);
 }
-//提供在查询条件中将聚合字段作为返回值,返回一个标量
-RC aggregate_value(Trx* trx,Table* table,char* attr_name, AggregationTypeFlag flag, 
-                    Value* value_,CompositeConditionFilter* filter){
-    AggregatesField field{attr_name,flag};
-    RecordAggregater aggregater(*table);
-    RC rc = aggregater.set_field(&field,1);
-    if(rc !=SUCCESS)
-      return rc;
-    rc = table->scan_record(trx, filter, -1, (void *)&aggregater, record_reader_aggregate_adapter);
-    if(rc !=SUCCESS)
-      return rc;
-    rc = aggregater.get_condition_value(value_);
-    return rc;
-}
 
 RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session_event){
   Session *session = session_event->get_client()->session;
@@ -650,7 +640,7 @@ RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session
   if(rc!=RC::SUCCESS)
     return rc;
   const Aggregates &aggregates = sql->sstr.aggregation;
-  char* table_name = sql->sstr.aggregation.relation_name;
+  char* table_name = sql->sstr.aggregation.relation_name[0];
   Table* table = DefaultHandler::get_default().find_table(db,table_name);
   if (nullptr == table) {
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
@@ -663,10 +653,10 @@ RC ExecuteStage::do_aggreagate(const char *db, Query *sql, SessionEvent *session
   for (size_t i = 0; i < aggregates.condition_num; i++) {
     const Condition &condition = aggregates.conditions[i];
     if ((condition.left_is_attr == 0 && condition.right_is_attr == 0) || // 两边都是值
-        (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name)) ||  // 左边是属性右边是值
-        (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name)) ||  // 左边是值，右边是属性名
+        (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name[0])) ||  // 左边是属性右边是值
+        (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name[0])) ||  // 左边是值，右边是属性名
         (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
-            match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name) && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name)) // 左右都是属性名，并且表名都符合
+            match_table(aggregates, condition.left_attr.relation_name, sql->sstr.aggregation.relation_name[0]) && match_table(aggregates, condition.right_attr.relation_name, sql->sstr.aggregation.relation_name[0])) // 左右都是属性名，并且表名都符合
         ) {
       DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
       rc = condition_filter->init(*table, condition);
@@ -785,5 +775,120 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
   }
 
   return select_node.init(trx, table, std::move(schema), std::move(condition_filters));
+}
+
+RC multi_table_agg_to_value(Trx* trx,const char* db,Aggregates* aggregate,Value* value){
+    LOG_TRACE("Enter");
+    Selects select;
+    //trans agg into select
+    for(int i=0;i!=aggregate->field_num;i++){
+      select.attributes[i].agg_type = aggregate->field[i].aggregation_type;
+      select.attributes[i].attribute_name = aggregate->field[i].attribute_name;
+      select.attributes[i].relation_name = aggregate->field[i].relation_name;
+      LOG_DEBUG("Get field %s.%s",select.attributes[i].relation_name,select.attributes[i].attribute_name);
+    }
+    select.attr_num = aggregate->field_num;
+    for(int i=0;i!=aggregate->relation_num;i++){
+      select.relations[i] = aggregate->relation_name[i];
+      LOG_DEBUG("Get relation %s",select.relations[i]);
+    }
+    select.relation_num = aggregate->relation_num;
+
+    for(int i=0;i!=aggregate->condition_num;i++){
+      condition_copy(&select.conditions[i],&aggregate->conditions[i]);
+      LOG_DEBUG("Get left attr %s.%s",select.conditions[i].left_attr.relation_name,select.conditions[i].left_attr.attribute_name);
+      LOG_DEBUG("Get right attr %s.%s",select.conditions[i].right_attr.relation_name,select.conditions[i].right_attr.attribute_name);
+      LOG_DEBUG("Get comp %d",select.conditions[i].comp);
+    }
+    select.condition_num = aggregate->condition_num;
+
+  RC rc=RC::SUCCESS;
+  std::vector<SelectExeNode *> select_nodes;
+  for (size_t i = 0; i < select.relation_num; i++) {
+    const char *table_name = select.relations[i];
+    SelectExeNode *select_node = new SelectExeNode;
+    rc = create_selection_executor(trx, select, db, table_name, *select_node);
+    if (rc != RC::SUCCESS) {
+      delete select_node;
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      return rc;
+    }
+    select_nodes.push_back(select_node);
+  }
+  if (select_nodes.empty()) {
+    LOG_ERROR("No table given");
+    return RC::SQL_SYNTAX;
+  }
+
+  std::vector<TupleSet> tuple_sets;
+  for (SelectExeNode *&node: select_nodes) {
+    TupleSet tuple_set;
+    rc = node->execute(tuple_set);
+    if (rc != RC::SUCCESS) {
+      for (SelectExeNode *& tmp_node: select_nodes) {
+        delete tmp_node;
+      }
+      return rc;
+    } else {
+      tuple_sets.push_back(std::move(tuple_set));
+    }
+  }
+  if (tuple_sets.size() > 1) {
+    LOG_TRACE("multi agg");
+    // 本次查询了多张表，需要做join操作
+    LOG_DEBUG("print multi table tuple set");
+    std::reverse(tuple_sets.begin(),tuple_sets.end());
+    TupleSchema schema;
+    for(auto& t:tuple_sets) {
+      schema.append(t.get_schema());
+    }
+    std::vector<std::pair<int,int>> cond_record;
+    while(true) {
+      if(!check_multi_table_condition(schema,select,cond_record)) {
+        LOG_DEBUG("check multi table condition failure");
+        break;
+      }
+      std::vector<std::pair<int,int>> print_order;
+      for(int i=0;i<tuple_sets.size();i++) {
+        for(int j=0;j<tuple_sets[i].get_schema().fields().size();++j){
+          print_order.push_back({i,j});
+        }
+      }
+      std::vector<const Tuple*> tuples;
+      //schema.print(ss);
+      TupleSet mid_tuple_set;
+      std::vector<TupleSet> res_set;
+      res_set.emplace_back(std::move(mid_tuple_set));
+      res_set.back().set_schema(schema);
+      //算笛卡尔积，过滤数据
+      std::stringstream ss;
+      //其实用不到ss
+      print_tuple_sets(tuple_sets,0,tuples,ss,print_order,select,cond_record,res_set.back());
+      //获取打印顺序
+      TupleSchema res_schema;
+      print_order=get_print_order(select,res_set,res_schema);
+      if(print_order.empty()) {
+        ss.clear();
+        ss << "FAILURE\n";
+        LOG_DEBUG("get print order condition failure");
+        break;
+      }
+      // res_set.back().print_by_order(ss,print_order);
+      GroupTupleSet group_set(&res_set.back(),&select,print_order);
+      rc = group_set.aggregates();
+      rc = group_set.to_value(value);
+      break;
+    }
+  } else {
+    LOG_ERROR("single table");
+    return RC::ABORT;
+  }
+
+  for (SelectExeNode *& tmp_node: select_nodes) {
+    delete tmp_node;
+  }
+  return rc;
 }
 
