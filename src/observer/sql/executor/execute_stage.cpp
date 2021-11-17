@@ -533,7 +533,6 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       tuple_sets.push_back(std::move(tuple_set));
     }
   }
-
   std::stringstream ss;
   if (tuple_sets.size() > 1) {
     // 本次查询了多张表，需要做join操作
