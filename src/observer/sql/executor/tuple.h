@@ -46,6 +46,7 @@ public:
   void add(const char *s, int len);
   void add_date(int value);
   void add_null();
+  void add(const char*d1,int len1, const char* d2,int len2);
 
   const std::vector<std::shared_ptr<TupleValue>> &values() const {
     return values_;

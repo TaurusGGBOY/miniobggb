@@ -122,6 +122,7 @@ ParserContext *get_context(yyscan_t scanner)
 		NULLABLE
 		NOTNULL
 		NULL_T
+		TEXT_T
 
 %union {
   struct _Attr *attr;
@@ -320,6 +321,7 @@ type:
        | STRING_T { $$=CHARS; }
        | FLOAT_T { $$=FLOATS; }
 	   | DATE_T { $$=DATES; }
+	   | TEXT_T { $$=TEXT; }
        ;
 ID_get:
 	ID 

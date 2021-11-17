@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #ifndef __OBSERVER_SQL_EXECUTOR_VALUE_H_
 #define __OBSERVER_SQL_EXECUTOR_VALUE_H_
 
+#include "common/log/log.h"
+
 #include <string.h>
 
 #include <string>
@@ -210,6 +212,28 @@ public:
       LOG_ERROR("Unsupported type");
   }
 
+private:
+  std::string value_;
+};
+
+class TextValue : public TupleValue {
+public:
+  TextValue(const char* data1,int len1,const char* data2,int len2) {
+    value_.append(data1,2048);
+    value_.append(data2,2048);
+  }
+  void to_string(std::ostream &os) const override {
+    printf("value size is %d",value_.size());
+    os << value_.c_str();
+  }
+  int compare(const TupleValue &other) const override {
+    const TextValue &string_other = (const TextValue &)other;
+    return strcmp(value_.c_str(), string_other.value_.c_str());
+  }
+
+  AttrType get_type() const override{
+    return TEXT;
+  }
 private:
   std::string value_;
 };

@@ -66,6 +66,10 @@ void Tuple::add_date(int value) {
   add(new DateValue(value));
 }
 
+void Tuple::add(const char*d1,int len1, const char* d2,int len2) {
+  add(new TextValue(d1,len1,d2,len2));
+}
+
 void Tuple::add_null() {
   add(new NullValue());
 }
@@ -228,6 +232,7 @@ void TupleSet::print(std::ostream &os, bool table_name) const {
       os << " | ";
     }
     values.back()->to_string(os);
+    //LOG_DEBUG("print endl");
     os << std::endl;
   }
 }
@@ -302,6 +307,27 @@ void TupleRecordConverter::add_record(const char *record) {
       case CHARS: {
         const char *s = record + field_meta->offset();  // 现在当做Cstring来处理
         tuple.add(s, std::min((int)strlen(s),field_meta->len()));
+      }
+        break;
+      case TEXT_PAGE_NUM:{
+        LOG_DEBUG("get text values");
+        int p1 = *(int*)(record + field_meta->offset());
+        int p2 = *(int*)(record + field_meta->offset() + 4);
+        BPPageHandle h1,h2;
+        if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p1,&h1)!=RC::SUCCESS) {
+          LOG_ERROR("failed to get page for get text data ");
+        }
+        if (table_->get_buffer_pool()->get_this_page(table_->get_file_id(),p2,&h2)!=RC::SUCCESS) {
+          LOG_ERROR("failed to get page for get text data ");
+        }
+        PageHeader* ph1=(PageHeader*)h1.frame->page.data;
+        PageHeader* ph2=(PageHeader*)h1.frame->page.data;
+        LOG_DEBUG("text value page is [%d:%d]",p1,p2);
+        tuple.add(h1.frame->page.data+ph1->first_record_offset,2048,h2.frame->page.data+ph2->first_record_offset,2048);
+        if(table_->get_buffer_pool()->unpin_page(&h1)!=RC::SUCCESS ||
+            table_->get_buffer_pool()->unpin_page(&h2)!=RC::SUCCESS) {
+          LOG_ERROR("failed to unpin page after get text data");
+        }
       }
       break;
       default: {

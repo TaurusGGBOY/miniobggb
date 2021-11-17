@@ -19,13 +19,6 @@ See the Mulan PSL v2 for more details. */
 
 using namespace common;
 
-struct PageHeader {
-  int record_num;  // 当前页面记录的个数
-  int record_capacity; // 最大记录个数
-  int record_real_size; // 每条记录的实际大小
-  int record_size; // 每条记录占用实际空间大小(可能对齐)
-  int first_record_offset; // 第一条记录的偏移量
-};
 
 int align8(int size) {
   return size / 8 * 8 + ((size % 8 == 0) ? 0 : 8);
@@ -315,6 +308,10 @@ bool RecordPageHandler::is_full() const {
   return page_header_->record_num >= page_header_->record_capacity;
 }
 
+bool RecordPageHandler::is_text_data() const {
+  //LOG_DEBUG("check is text data,capacity is %d,num is %d",page_header_->record_capacity,page_header_->record_num);
+  return page_header_->record_capacity==1;
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 RecordFileHandler::RecordFileHandler() :
@@ -322,7 +319,7 @@ RecordFileHandler::RecordFileHandler() :
     file_id_(-1) {
 }
 
-RC RecordFileHandler::init(DiskBufferPool &buffer_pool, int file_id) {
+RC RecordFileHandler::init(DiskBufferPool &buffer_pool, int file_id,std::vector<int> metas) {
 
   RC ret = RC::SUCCESS;
 
@@ -333,7 +330,7 @@ RC RecordFileHandler::init(DiskBufferPool &buffer_pool, int file_id) {
 
   disk_buffer_pool_ = &buffer_pool;
   file_id_ = file_id;
-
+  field_metas=metas;
   LOG_TRACE("Successfully open %d.", file_id);
   return ret;
 }
@@ -439,6 +436,41 @@ RC RecordFileHandler::delete_record(const RID *rid) {
               rid->page_num, file_id_);
     return ret;
   }
+  Record record;
+  get_record(rid,&record);
+  for (int i = 0; i < field_metas.size();i++) {
+    //todo:text is null需要处理
+    RC rc=RC::SUCCESS;
+    LOG_DEBUG("get text values");
+    int p1 = *(int*)(record.data + field_metas[i]);
+    int p2 = *(int*)(record.data + field_metas[i] + 4);
+    BPPageHandle ph1,ph2;
+    if((rc=disk_buffer_pool_->get_this_page(file_id_,p1,&ph1))!=RC::SUCCESS) {
+      LOG_ERROR("failed to get page[%d:%d] for delete text data",file_id_,p1);
+      return rc;
+    }
+    if((rc=disk_buffer_pool_->get_this_page(file_id_,p2,&ph2))!=RC::SUCCESS) {
+      LOG_ERROR("failed to get page[%d:%d] for delete text data",file_id_,p2);
+      return rc;
+    }
+    auto* page_header_1 = (PageHeader*)(ph1.frame->page.data);
+    auto* page_header_2 = (PageHeader*)(ph2.frame->page.data);
+    page_header_1->record_num-=1;
+    page_header_2->record_num-=1;
+    assert(page_header_1->record_num==0);
+    assert(page_header_2->record_num==0);
+    disk_buffer_pool_->mark_dirty(&ph1);
+    disk_buffer_pool_->mark_dirty(&ph2);
+    LOG_DEBUG("delete page[%d:%d] data for delete text data,their record num is [%d:%d]",p1,p2,page_header_1->record_num,page_header_2->record_num);
+    if((rc=disk_buffer_pool_->unpin_page(&ph1))!=RC::SUCCESS) {
+      LOG_ERROR("failed to unpin page[%d:%d] for delete text data",file_id_,p1);
+      return rc;
+    }
+    if((rc=disk_buffer_pool_->unpin_page(&ph2))!=RC::SUCCESS) {
+      LOG_ERROR("failed to unpin page[%d:%d] for delete text data",file_id_,p2);
+      return rc;
+    }
+  }
   return page_handler.delete_record(rid);
 }
 
@@ -517,18 +549,31 @@ RC RecordFileScanner::get_next_record(Record *rec) {
   }
 
   while (current_record.rid.page_num < page_count) {
-
+    LOG_DEBUG("curr page is %d,page count is %d",current_record.rid.page_num,page_count);
     if (current_record.rid.page_num != record_page_handler_.get_page_num()) {
       record_page_handler_.deinit();
       ret = record_page_handler_.init(*disk_buffer_pool_, file_id_, current_record.rid.page_num);
+      if(record_page_handler_.is_full())
       if (ret != RC::SUCCESS && ret != RC::BUFFERPOOL_INVALID_PAGE_NUM) {
         LOG_ERROR("Failed to init record page handler. page num=%d", current_record.rid.page_num);
         return ret;
       }
-
+      if(record_page_handler_.is_text_data()) {
+        LOG_DEBUG("page:%d is text data page,ignore",current_record.rid.page_num);
+        current_record.rid.page_num++;
+        current_record.rid.slot_num = -1;
+        if(current_record.rid.page_num == page_count) {
+          LOG_DEBUG("current page is the last page,end scan");
+          return RC::RECORD_EOF;
+        }
+        continue;
+      }
       if (RC::BUFFERPOOL_INVALID_PAGE_NUM == ret) {
         current_record.rid.page_num++;
         current_record.rid.slot_num = -1;
+        if(current_record.rid.page_num==page_count) {
+          return RC::RECORD_EOF;
+        }
         continue;
       }
     }
