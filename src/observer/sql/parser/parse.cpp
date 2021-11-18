@@ -51,8 +51,12 @@ void order_attr_destroy(OrderAttr *relation_attr) {
   relation_attr->is_asc = nullptr;
 }
 
-void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name) {
-  relation_attr->agg_type = ATF_NULL;
+void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name,
+     const char* type_name) {
+  if(type_name==nullptr)
+    relation_attr->agg_type = ATF_NULL;
+  else
+    relation_attr->agg_type = match_aggtype(type_name);
   if (relation_name != nullptr) {
     relation_attr->relation_name = strdup(relation_name);
   } else {
@@ -305,6 +309,11 @@ void selects_copy_init(Selects* target,Selects* object){
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr) {
   selects->order_attr[selects->order_attr_num++] = *rel_attr;
 }
+
+void selects_append_group_attr(Selects *selects, RelAttr *rel_attr){
+  selects->group_attr[selects->group_attr_num++] = *rel_attr;
+}
+
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr) {
   selects->attributes[selects->attr_num++] = *rel_attr;
 }
@@ -343,6 +352,11 @@ void selects_destroy(Selects *selects) {
     order_attr_destroy(&selects->order_attr[i]);
   }
   selects->order_attr_num=0;
+
+  for(size_t i = 0;i!=selects->group_attr_num;i++) {
+    relation_attr_destroy(&selects->group_attr[i]);
+  }
+  selects->group_attr_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name, Value values[MAX_NUM][MAX_NUM],size_t value_length_list[MAX_NUM],size_t value_num) {
@@ -481,6 +495,26 @@ void aggregates_append_field_itoa(Aggregates *aggregates,int number,
     std::string attr_name = std::to_string(number);
     aggregates_append_field(aggregates,nullptr,attr_name.c_str(),type_name);
 }
+
+enum AggregationTypeFlag match_aggtype(const char* type_name){
+  std::string typestr(type_name,strlen(type_name));
+  if(std::regex_match(typestr,std::regex("[Mm][Aa][Xx]"))){
+    return ATF_MAX;
+  }
+  else if(std::regex_match(typestr,std::regex("[Mm][Ii][Nn]"))){
+    return ATF_MIN;
+  }
+  else if(std::regex_match(typestr,std::regex("[Ss][Uu][Mm]"))){
+    return ATF_SUM;
+  }else if(std::regex_match(typestr,std::regex("[Aa][Vv][Gg]"))){
+    return ATF_AVG;
+  }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
+    return ATF_COUNT;
+  }else{
+    LOG_ERROR("failed to parse aggregation type of %s!",type_name);
+  }
+}
+
 void aggregates_append_field(Aggregates *aggregates,const char* relation_name,const char *attribute_name,
                            const char* type_name)
 {
@@ -489,27 +523,7 @@ void aggregates_append_field(Aggregates *aggregates,const char* relation_name,co
     aggregates->field[aggregates->field_num].relation_name = strdup(relation_name);
   else
     relation_name = nullptr;
-  std::string typestr(type_name,strlen(type_name));
-  if(std::regex_match(typestr,std::regex("[Mm][Aa][Xx]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_MAX;
-    LOG_INFO("append aggregation type MAX");
-  }
-  else if(std::regex_match(typestr,std::regex("[Mm][Ii][Nn]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_MIN;
-    LOG_INFO("append aggregation type MIN");
-  }
-  else if(std::regex_match(typestr,std::regex("[Ss][Uu][Mm]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_SUM;
-    LOG_INFO("append aggregation type SUM");
-  }else if(std::regex_match(typestr,std::regex("[Aa][Vv][Gg]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_AVG;
-    LOG_INFO("append aggregation type AVG");
-  }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
-    aggregates->field[aggregates->field_num].aggregation_type = ATF_COUNT;
-    LOG_INFO("append aggregation type COUNT");
-  }else{
-    LOG_ERROR("failed to parse aggregation type of %s(%s)!",typestr.c_str(),attribute_name);
-  }
+  aggregates->field[aggregates->field_num].aggregation_type = match_aggtype(type_name);
   aggregates->field_num++;
 }
 

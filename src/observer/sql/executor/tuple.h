@@ -197,18 +197,24 @@ class GroupTupleSet{
   //支持多表聚合和group by
 public:
   GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order_);
+  ~GroupTupleSet();
   std::string schema_field_name(const char *attr_name,enum AggregationTypeFlag flag);
   std::string get_key(const Tuple& row);
+  RC set_by_field(Selects* select);
   RC aggregates();
   void init_tuple(Tuple* init, const Tuple& ref);
   RC to_value(Value* value);
+  void print(std::ostream &os,bool table_name);
 private:
   std::unordered_map<std::string,Tuple*> groups;
   std::unordered_map<std::string,int> count;
   TupleSchema schema_;
+  //存储group by字段在笛卡尔积集合中的坐标
   std::vector<int> by_index;
+  //存储输出tuple中第几个列需要被聚合以及类型
   std::vector<std::pair<int,AggregationTypeFlag>> agg_index;
   TupleSet* input_;
+  //存储输出tuple中第几个列对应在输入tuple中的列
   const std::vector<std::pair<int,int>>& order_;
 };
 

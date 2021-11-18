@@ -581,13 +581,30 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         LOG_DEBUG("get print order condition failure");
         break;
       }
-      //获取最终打印表
-      //TupleSet res;
-      //res.set_schema(res_schema);
-      //tuples.clear();
-      //cond_record.clear();
-      //print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
-      res_set.back().print_by_order(ss,print_order);
+      if(selects.group_attr_num!=0){
+        GroupTupleSet group_set(&res_set.back(),_select,print_order);
+        rc = group_set.set_by_field(_select);
+        if(rc!=RC::SUCCESS){
+          ss << "FAILURE\n";
+          for (SelectExeNode *& tmp_node: select_nodes) {
+            delete tmp_node;
+          }
+          end_trx_if_need(session, trx, true);
+          return rc;
+        }
+        group_set.aggregates();
+        group_set.print(ss,true);
+      }
+      else{
+        //获取最终打印表
+        //TupleSet res;
+        //res.set_schema(res_schema);
+        //tuples.clear();
+        //cond_record.clear();
+        //print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
+        res_set.back().print_by_order(ss,print_order);
+      }
+
       break;
     }
   } else {
@@ -718,8 +735,12 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
 
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
+    if(selects.group_attr_num!=0){
+      TupleSchema::from_table(table, schema);
+      break; // 没有校验，给出* 之后，再写字段的错误
+    }
     if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
-      if (0 == strcmp("*", attr.attribute_name)) {
+      if (0 == strcmp("*", attr.attribute_name))  {
         // 列出这张表所有字段
         TupleSchema::from_table(table, schema);
         break; // 没有校验，给出* 之后，再写字段的错误

@@ -160,6 +160,8 @@ typedef struct _Selects {
   char *    relations[MAX_NUM];     // relations in From clause
   OrderAttr order_attr[MAX_NUM];
   size_t    order_attr_num;
+  RelAttr   group_attr[MAX_NUM];
+  size_t    group_attr_num;
   size_t    condition_num;          // Length of conditions in Where clause
   Condition conditions[MAX_NUM];    // conditions in Where clause
 } Selects;
@@ -306,7 +308,7 @@ extern "C" {
 
 void order_attr_init(OrderAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* is_asc);
 void order_attr_destroy(OrderAttr *relation_attr);
-void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
+void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* type_name);
 void relation_attr_destroy(RelAttr *relation_attr);
 
 void value_init_integer(Value *value, int v);
@@ -331,6 +333,7 @@ void selects_init(Selects *selects);
 void selects_copy_init(Selects* target,Selects* object);
 void selects_append_order_attr(Selects *selects, OrderAttr *rel_attr);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
+void selects_append_group_attr(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_destroy(Selects *selects);
@@ -385,6 +388,7 @@ void query_reset(Query *query);
 void query_destroy(Query *query);  // reset and delete
 
 void query_stack_pop(SubQuries* sub, int isselect);
+enum AggregationTypeFlag match_aggtype(const char* type_name);
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

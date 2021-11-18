@@ -82,7 +82,7 @@ public:
       this->value_+=int_right.value_;
     }
     else
-      LOG_ERROR("Unsupported plus");
+      LOG_ERROR("Unsupported plus with type %d",right.get_type());
   }
 
 private:
@@ -169,7 +169,7 @@ public:
       this->value_+=int_right.get_value();
     }
     else
-      LOG_ERROR("Unsupported plus");
+      LOG_ERROR("Unsupported plus with type %d",right.get_type());
   }
 
 private:

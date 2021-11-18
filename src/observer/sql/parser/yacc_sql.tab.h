@@ -1,9 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.5.1.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
-   Inc.
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,9 +29,6 @@
 
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
-
-/* Undocumented macros, especially those whose name start with YY_,
-   are private implementation details.  Do not rely on them.  */
 
 #ifndef YY_YY_YACC_SQL_TAB_H_INCLUDED
 # define YY_YY_YACC_SQL_TAB_H_INCLUDED
@@ -93,33 +89,35 @@ extern int yydebug;
     NE = 299,
     BELONG = 300,
     NOTBELONG = 301,
-    DATE_T = 302,
-    ORDER_BY = 303,
-    ASC = 304,
-    UNIQUEINDEX = 305,
-    ISNOTNULL = 306,
-    ISNULL = 307,
-    NULLABLE = 308,
-    NOTNULL = 309,
-    NULL_T = 310,
-    TEXT_T = 311,
-    NUMBER = 312,
-    FLOAT = 313,
-    ID = 314,
-    AGGREGATE = 315,
-    PATH = 316,
-    SSS = 317,
-    STAR = 318,
-    STRING_V = 319,
-    DATE = 320
+    GROUPBY = 302,
+    DATE_T = 303,
+    ORDER_BY = 304,
+    ASC = 305,
+    UNIQUEINDEX = 306,
+    ISNOTNULL = 307,
+    ISNULL = 308,
+    NULLABLE = 309,
+    NOTNULL = 310,
+    NULL_T = 311,
+    TEXT_T = 312,
+    NUMBER = 313,
+    FLOAT = 314,
+    ID = 315,
+    AGGREGATE = 316,
+    PATH = 317,
+    SSS = 318,
+    STAR = 319,
+    STRING_V = 320,
+    DATE = 321
   };
 #endif
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
+
 union YYSTYPE
 {
-#line 129 "yacc_sql.y"
+#line 130 "yacc_sql.y" /* yacc.c:1909  */
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -129,9 +127,9 @@ union YYSTYPE
   float floats;
   char *position;
 
-#line 133 "yacc_sql.tab.h"
-
+#line 131 "yacc_sql.tab.h" /* yacc.c:1909  */
 };
+
 typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1

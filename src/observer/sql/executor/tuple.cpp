@@ -759,7 +759,10 @@ std::string GroupTupleSet::schema_field_name(const char *attr_name,enum Aggregat
   case ATF_AVG:
     aggtypeWithattr+="avg";
     break;
-  case ATF_NULL:
+  case ATF_NULL:{
+    aggtypeWithattr+=attr_name;
+    return aggtypeWithattr;
+  }
     break;
   }
 
@@ -770,11 +773,13 @@ std::string GroupTupleSet::schema_field_name(const char *attr_name,enum Aggregat
 }
 
 GroupTupleSet::GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order):input_(input),order_(order){
-  for(int i =0;i!=select->attr_num;i++){
-    if(select->attributes[i].agg_type==ATF_NULL)
-      by_index.push_back(i);
-    else
-      agg_index.push_back({i,select->attributes[i].agg_type});
+  for(int i =select->attr_num-1;i!=-1;i--){
+    if(select->attributes[i].agg_type!=ATF_NULL)
+      agg_index.push_back({select->attr_num-1-i,select->attributes[i].agg_type});
+    // if(select->attributes[i].agg_type==ATF_NULL)
+    //   by_index.push_back(select->attr_num-1-i);
+    // else
+    //   agg_index.push_back({select->attr_num-1-i,select->attributes[i].agg_type});
     switch (select->attributes[i].agg_type)
     {
     //count和sum固定类型值
@@ -785,10 +790,38 @@ GroupTupleSet::GroupTupleSet(TupleSet* input,Selects* select,const std::vector<s
       schema_.add(FLOATS,select->attributes[i].relation_name,schema_field_name(select->attributes[i].attribute_name,ATF_AVG).c_str());
       break;
     default:
-      schema_.add(input_->get_schema().field(order_[i].second).type(),select->attributes[i].relation_name,
+      schema_.add(input_->get_schema().field(order_[select->attr_num-1-i].second).type(),select->attributes[i].relation_name,
       schema_field_name(select->attributes[i].attribute_name,select->attributes[i].agg_type).c_str());
       break;
     }
+  }
+}
+
+GroupTupleSet::~GroupTupleSet(){
+  for(auto it = groups.begin();it!=groups.end();it++){
+    delete it->second;
+  }
+}
+
+void GroupTupleSet::print(std::ostream &os,bool table_name){
+  if (schema_.fields().empty()) {
+    LOG_WARN("Got empty schema");
+    return;
+  }
+
+  schema_.print(os,table_name);
+
+  for(auto it = groups.begin();it!=groups.end();it++){
+    const Tuple &item = *it->second;
+    const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
+    for (std::vector<std::shared_ptr<TupleValue>>::const_iterator iter = values.begin(), end = --values.end();
+          iter != end; ++iter) {
+      (*iter)->to_string(os);
+      os << " | ";
+    }
+    values.back()->to_string(os);
+    //LOG_DEBUG("print endl");
+    os << std::endl;
   }
 }
 
@@ -829,8 +862,8 @@ RC GroupTupleSet::aggregates(){
     }
     else{
       Tuple* target = groups[key]; 
+      count[key]++;
       for(int j=0;j!=this->agg_index.size();j++){
-        count[key]++;
         switch (agg_index[j].second)
         {
         case ATF_SUM:
@@ -857,18 +890,40 @@ RC GroupTupleSet::aggregates(){
         {
         case ATF_COUNT:{
           IntValue& iv = (IntValue&)grouprow->get(agg_index[j].first);
-          iv.set_value(count[get_key(*grouprow)]);
+          iv.set_value(count[it->first]);
           break;
         }
         case ATF_AVG:{
           FloatValue& fv = (FloatValue&)grouprow->get(agg_index[j].first);
-          fv.set_value(fv.get_value()/count[get_key(*grouprow)]);
+          fv.set_value(fv.get_value()/count[it->first]);
           break;
         }
         default:
           break;
         }
     }
+  }
+  return RC::SUCCESS;
+}
+
+RC GroupTupleSet::set_by_field(Selects* select){
+  const TupleSchema& input_schema = input_->get_schema();
+  for(size_t j=0;j!=input_schema.size();j++){
+    LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+  }
+  for(size_t i=0;i!=select->group_attr_num;i++){
+    for(size_t j=0;j!=input_schema.size();j++){
+      //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+      if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0
+        && std::strcmp(select->group_attr[i].relation_name,input_schema.field(j).table_name())==0){
+          by_index.push_back(j);
+          break;
+        }
+    }
+  }
+  if(by_index.size()!=select->group_attr_num){
+    LOG_INFO("missing group field");
+    return RC::SCHEMA_FIELD_NOT_EXIST;
   }
   return RC::SUCCESS;
 }
