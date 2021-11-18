@@ -89,21 +89,19 @@ QUOTE            [\'\"]
 [Nn][Uu][Ll][Ll]     		 								RETURN_TOKEN(NULL_T);										
 [Ii][Nn]							RETURN_TOKEN(BELONG);		
 [Nn][Oo][Tt][[:space:]][Ii][Nn]     RETURN_TOKEN(NOTBELONG);						
-{ID}							                       printf("ID"); yylval->string=strdup(yytext); RETURN_TOKEN(ID);
+{ID}							                       yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("								                       RETURN_TOKEN(LBRACE);
 ")"								                       RETURN_TOKEN(RBRACE);
 
 ","                                      RETURN_TOKEN(COMMA);
-"="                                      printf("eq"); RETURN_TOKEN(EQ);
+"="                                      RETURN_TOKEN(EQ);
 "<="                                     RETURN_TOKEN(LE);
 "<>"                                     RETURN_TOKEN(NE);
 "<"                                      RETURN_TOKEN(LT);
 ">="                                     RETURN_TOKEN(GE);
 ">"                                      RETURN_TOKEN(GT);
-"+"										 RETURN_TOKEN(PLUS);
-"-"									     RETURN_TOKEN(MINUS);
-"/"								      printf("slash"); RETURN_TOKEN(DIV);
-{QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}	     printf("SSS"); yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+([\+\-\*/]?[\(\)A-Za-z0-9\.]+[\+\-\*/]+[\(\)A-Za-z0-9\.]+)|(\-+[\(\)A-Za-z0-9\.]+)			 RETURN_TOKEN(EXPRESSION);
+{QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}	     yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 
 .						                             printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
 %%
