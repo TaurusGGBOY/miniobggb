@@ -89,18 +89,21 @@ QUOTE            [\'\"]
 [Nn][Uu][Ll][Ll]     		 								RETURN_TOKEN(NULL_T);										
 [Ii][Nn]							RETURN_TOKEN(BELONG);		
 [Nn][Oo][Tt][[:space:]][Ii][Nn]     RETURN_TOKEN(NOTBELONG);						
-{ID}							                       yylval->string=strdup(yytext); RETURN_TOKEN(ID);
+{ID}							                       printf("ID"); yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("								                       RETURN_TOKEN(LBRACE);
 ")"								                       RETURN_TOKEN(RBRACE);
 
 ","                                      RETURN_TOKEN(COMMA);
-"="                                      RETURN_TOKEN(EQ);
+"="                                      printf("eq"); RETURN_TOKEN(EQ);
 "<="                                     RETURN_TOKEN(LE);
 "<>"                                     RETURN_TOKEN(NE);
 "<"                                      RETURN_TOKEN(LT);
 ">="                                     RETURN_TOKEN(GE);
 ">"                                      RETURN_TOKEN(GT);
-{QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}	     yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+"+"										 RETURN_TOKEN(PLUS);
+"-"									     RETURN_TOKEN(MINUS);
+"/"								      printf("slash"); RETURN_TOKEN(DIV);
+{QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}	     printf("SSS"); yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 
 .						                             printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
 %%

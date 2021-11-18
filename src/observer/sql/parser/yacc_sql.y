@@ -125,6 +125,9 @@ ParserContext *get_context(yyscan_t scanner)
 		NOTNULL
 		NULL_T
 		TEXT_T
+		PLUS
+		MINUS
+		DIV
 
 %union {
   struct _Attr *attr;
@@ -390,18 +393,18 @@ value_list:
     ;
 value:
     NUMBER{
-    //printf("value\n");
+    printf("value int\n");
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     |FLOAT{
-    //printf("value\n");
+    printf("value float\n");
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
 	|NULL_T{
 		value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
 		}
     |SSS {
-    //printf("value\n");
+    	printf("value SSS\n");
 		$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
@@ -431,12 +434,14 @@ select:				/*  select 语句的语法解析树*/
 	SELECT agg_field  FROM ID where SEMICOLON
 		{
 		//聚合运算的语法解析
+		printf("1111\n");
 		CONTEXT->ssql->flag = SCF_AGGREGATE;
 		aggregates_init(&CONTEXT->ssql->sstr.aggregation,$4,CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->condition_length = 0;
 	}
 	
 	| SELECT select_attr FROM ID inner_join where order SEMICOLON {
+		printf("22222\n");
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
@@ -454,6 +459,7 @@ select:				/*  select 语句的语法解析树*/
 
     | SELECT select_attr FROM ID rel_list where order SEMICOLON
 		{
+			printf("33333\n");
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
@@ -578,6 +584,7 @@ order_attr_list:
 
 select_attr:
     STAR {  
+			printf("123123213\n");
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
@@ -597,6 +604,9 @@ select_attr:
 	        relation_attr_init(&attr, $1, "*");
 	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	    }
+	| expression attr_list{
+
+	}
     ;
 subselect_start:
 	LBRACE SELECT
@@ -677,28 +687,30 @@ attr_list:
   	        relation_attr_init(&attr, $2, "*");
   	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
   	}
+	| COMMA expression attr_list{
+		printf("expressiong attr_list\n");
+	}
   	;
 
 rel_list:
     /* empty */
     | COMMA ID rel_list {	
-				selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
-		  }
+		selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+	}
     ;
 where:
     /* empty */ 
     | WHERE condition condition_list {	
-				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
-			}
+		printf("condition1\n");
+	}
     ;
 condition_list:
     /* empty */
     | AND condition condition_list {
-				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
-			}
+	}
     ;
 condition:
-    ID comOp value 
+	 ID comOp value 
 		{	
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, NULL, $1);
@@ -708,16 +720,7 @@ condition:
 			Condition condition;
 			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 0, NULL, right_value,NULL,NULL);
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name = NULL;
-			// $$->left_attr.attribute_name= $1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
-
+			
 		}
 	|ID BELONG subselect_start sub_in_select RBRACE{
 		//in subselect
@@ -862,47 +865,50 @@ condition:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-	
-		|value comOp value 
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
+	|expression comOp expression{
+		// must before value match
+		printf("matched\n");
+	}
+	|value comOp value 
+	{
+		Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
+		Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, left_value, 0, NULL, right_value,NULL,NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 0, NULL, left_value, 0, NULL, right_value,NULL,NULL);
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+		// $$ = ( Condition *)malloc(sizeof( Condition));
+		// $$->left_is_attr = 0;
+		// $$->left_attr.relation_name=NULL;
+		// $$->left_attr.attribute_name=NULL;
+		// $$->left_value = *$1;
+		// $$->comp = CONTEXT->comp;
+		// $$->right_is_attr = 0;
+		// $$->right_attr.relation_name = NULL;
+		// $$->right_attr.attribute_name = NULL;
+		// $$->right_value = *$3;
 
-		}
-		|ID comOp ID 
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, NULL, $1);
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, NULL, $3);
+	}
+	|ID comOp ID 
+	{
+		RelAttr left_attr;
+		relation_attr_init(&left_attr, NULL, $1);
+		RelAttr right_attr;
+		relation_attr_init(&right_attr, NULL, $3);
 
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 1;
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=$3;
+		Condition condition;
+		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);
+		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
+		// $$=( Condition *)malloc(sizeof( Condition));
+		// $$->left_is_attr = 1;
+		// $$->left_attr.relation_name=NULL;
+		// $$->left_attr.attribute_name=$1;
+		// $$->comp = CONTEXT->comp;
+		// $$->right_is_attr = 1;
+		// $$->right_attr.relation_name=NULL;
+		// $$->right_attr.attribute_name=$3;
 
-		}
+	}
     |value comOp ID
 		{
 			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
@@ -986,6 +992,7 @@ condition:
 			// $$->right_attr.relation_name=$5;
 			// $$->right_attr.attribute_name=$7;
     }
+	
     ;
 
 comOp:
@@ -998,6 +1005,25 @@ comOp:
 	| ISNULL { CONTEXT->comp[CONTEXT->comp_length++] = IS_NULL; }
 	| ISNOTNULL { CONTEXT->comp[CONTEXT->comp_length++] = IS_NOT_NULL; }
     ;
+
+calcuOp:
+	PLUS{}
+	| MINUS{printf("conditionmmmm\n");}
+	| STAR{printf("conditionssss\n");}
+	| DIV{ printf("matched div\n");}
+	;
+
+expression:
+	LBRACE expression RBRACE calcuOp expression{printf("condition3333\n");}
+	| ID DOT ID calcuOp expression{printf("condition3333\n");}
+	| ID calcuOp expression{printf("condition3333\n");}
+	| value calcuOp expression{printf("condition3333\n");}
+	| LBRACE expression RBRACE{printf("condition3333\n");}
+	| MINUS expression{printf("condition3333\n");}
+	| ID DOT ID{printf("condition3333\n");}
+	| ID{printf("condition3333\n");}
+	| value{printf("condition3333\n");}
+	;
 
 load_data:
 		LOAD DATA INFILE SSS INTO TABLE ID SEMICOLON
