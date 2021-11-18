@@ -126,9 +126,7 @@ ParserContext *get_context(yyscan_t scanner)
 		NOTNULL
 		NULL_T
 		TEXT_T
-		PLUS
-		MINUS
-		DIV
+		EXPRESSION
 
 %union {
   struct _Attr *attr;
@@ -373,14 +371,11 @@ insert:				/*insert   语句的语法解析树*/
 other_values:
 
     | COMMA LBRACE value value_list RBRACE other_values {
-        //printf("other values\n");
-
     };
 
 value_list:
     /* empty */
     {
-        //printf("value list finished \n");
         for(int i=0;i<CONTEXT->value_length;++i) {
             CONTEXT->values_list[CONTEXT->values_size][i]=CONTEXT->values[i];
         }
@@ -394,18 +389,15 @@ value_list:
     ;
 value:
     NUMBER{
-    printf("value int\n");
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
     |FLOAT{
-    printf("value float\n");
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
 	|NULL_T{
 		value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
 		}
     |SSS {
-    	printf("value SSS\n");
 		$1 = substr($1,1,strlen($1)-2);
   		value_init_string(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
@@ -432,22 +424,18 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-	SELECT agg_field  FROM ID where SEMICOLON
+	EXPRESSION SEMICOLON{
+	}
+	|	SELECT agg_field  FROM ID where SEMICOLON
 		{
 		//聚合运算的语法解析
-		printf("1111\n");
 		CONTEXT->ssql->flag = SCF_AGGREGATE;
 		aggregates_init(&CONTEXT->ssql->sstr.aggregation,$4,CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->condition_length = 0;
 	}
 	
-<<<<<<< HEAD
 	| SELECT select_attr FROM ID inner_join where groupby order  SEMICOLON {
 			//单表一定进这里
-=======
-	| SELECT select_attr FROM ID inner_join where order SEMICOLON {
-		printf("22222\n");
->>>>>>> dev condition
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
@@ -590,7 +578,6 @@ order_attr_list:
 
 select_attr:
     STAR {  
-			printf("123123213\n");
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*",NULL);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
@@ -619,7 +606,7 @@ select_attr:
 			RelAttr attr;
 			relation_attr_init(&attr, $3,$5, $1);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	| expression attr_list{
+	| EXPRESSION attr_list{
 
 	}
     ;
@@ -711,8 +698,7 @@ attr_list:
 			RelAttr attr;
 			relation_attr_init(&attr, $4,$6, $2);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-	| COMMA expression attr_list{
-		printf("expressiong attr_list\n");
+	| COMMA EXPRESSION attr_list{
 	}
   	;
 
@@ -750,7 +736,6 @@ group_list:
 where:
     /* empty */ 
     | WHERE condition condition_list {	
-		printf("condition1\n");
 	}
     ;
 condition_list:
@@ -759,7 +744,14 @@ condition_list:
 	}
     ;
 condition:
-	 ID comOp value 
+	ID comOp EXPRESSION{}
+	|EXPRESSION comOp ID{}
+	|ID DOT ID comOp EXPRESSION{}
+	|EXPRESSION comOp ID DOT ID{}
+	|value comOp EXPRESSION{}
+	|EXPRESSION comOp value{}
+	|EXPRESSION comOp EXPRESSION{}
+	 | ID comOp value 
 		{	
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, NULL, $1,NULL);
@@ -914,10 +906,6 @@ condition:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-	|expression comOp expression{
-		// must before value match
-		printf("matched\n");
-	}
 	|value comOp value 
 	{
 		Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
@@ -1055,24 +1043,6 @@ comOp:
 	| ISNOTNULL { CONTEXT->comp[CONTEXT->comp_length++] = IS_NOT_NULL; }
     ;
 
-calcuOp:
-	PLUS{}
-	| MINUS{printf("conditionmmmm\n");}
-	| STAR{printf("conditionssss\n");}
-	| DIV{ printf("matched div\n");}
-	;
-
-expression:
-	LBRACE expression RBRACE calcuOp expression{printf("condition3333\n");}
-	| ID DOT ID calcuOp expression{printf("condition3333\n");}
-	| ID calcuOp expression{printf("condition3333\n");}
-	| value calcuOp expression{printf("condition3333\n");}
-	| LBRACE expression RBRACE{printf("condition3333\n");}
-	| MINUS expression{printf("condition3333\n");}
-	| ID DOT ID{printf("condition3333\n");}
-	| ID{printf("condition3333\n");}
-	| value{printf("condition3333\n");}
-	;
 
 load_data:
 		LOAD DATA INFILE SSS INTO TABLE ID SEMICOLON
