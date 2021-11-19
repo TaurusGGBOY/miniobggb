@@ -94,8 +94,13 @@ void TupleSchema::from_table(const Table *table, TupleSchema &schema) {
 }
 
 void TupleSchema::add(AttrType type, const char *table_name, const char *field_name) {
-  fields_.emplace_back(type, table_name, field_name);
+  fields_.emplace_back(type, table_name, field_name,ATF_NULL);
 }
+
+void TupleSchema::add_agg_field(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag af){
+  fields_.emplace_back(type, table_name, field_name,af);
+}
+
 
 void TupleSchema::add_if_not_exists(AttrType type, const char *table_name, const char *field_name) {
   for (const auto &field: fields_) {
@@ -167,6 +172,87 @@ void TupleSchema::print(std::ostream &os,bool table_name) const {
     os << fields_.back().table_name() << ".";
   }
   os << fields_.back().field_name() << std::endl;
+}
+
+void TupleSchema::print_with_agg(std::ostream &os,bool table_name){
+  if (fields_.empty()) {
+    os << "No schema";
+    return;
+  }
+
+  // 判断有多张表还是只有一张表
+  std::set<std::string> table_names;
+  for (const auto &field: fields_) {
+    table_names.insert(field.table_name());
+  }
+
+  for (std::vector<TupleField>::const_iterator iter = fields_.begin(), end = --fields_.end();
+       iter != end; ++iter) {
+    if(strcmp("null_field", iter->field_name())== 0){
+      continue;
+    }
+    if(iter->agg_type()!=ATF_NULL){
+      switch (iter->agg_type())
+      {
+      case ATF_COUNT:
+        os<<"count(";
+        break;
+      case ATF_SUM:
+        os<<"sum(";
+        break;
+      case ATF_MAX:
+        os<<"max(";
+        break;
+      case ATF_MIN:
+        os<<"min(";
+        break;
+      case ATF_AVG:
+        os<<"avg(";
+        break;
+      default:
+        break;
+      }
+    }
+    if (table_name) {
+      os << iter->table_name() << ".";
+    }
+    os << iter->field_name();
+    if(iter->agg_type()!=ATF_NULL){
+      os<<")";
+    }
+    os << " | ";
+  }
+
+  if(fields_.back().agg_type()!=ATF_NULL){
+      switch (fields_.back().agg_type())
+      {
+      case ATF_COUNT:
+        os<<"count(";
+        break;
+      case ATF_SUM:
+        os<<"sum(";
+        break;
+      case ATF_MAX:
+        os<<"max(";
+        break;
+      case ATF_MIN:
+        os<<"min(";
+        break;
+      case ATF_AVG:
+        os<<"avg(";
+        break;
+      default:
+        break;
+      }
+    }
+  if (table_name) {
+    os << fields_.back().table_name() << ".";
+  }
+  os << fields_.back().field_name();
+  if(fields_.back().agg_type()!=ATF_NULL){
+    os<<")";
+  }
+  os << std::endl;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -740,42 +826,16 @@ TupleSet* RecordAggregater::get_tupleset(){
   return &tupleset;
 }
 
-std::string GroupTupleSet::schema_field_name(const char *attr_name,enum AggregationTypeFlag flag){
-  std::string aggtypeWithattr;
-  switch (flag)
-  {
-  case ATF_MAX:
-    aggtypeWithattr+="max";
-    break;
-  case ATF_MIN:
-    aggtypeWithattr+="min";
-    break;
-  case ATF_SUM:
-    aggtypeWithattr+="sum";
-    break;
-  case ATF_COUNT:
-    aggtypeWithattr+="count";
-    break;
-  case ATF_AVG:
-    aggtypeWithattr+="avg";
-    break;
-  case ATF_NULL:{
-    aggtypeWithattr+=attr_name;
-    return aggtypeWithattr;
-  }
-    break;
-  }
-
-  aggtypeWithattr+="(";
-  aggtypeWithattr+=attr_name;
-  aggtypeWithattr+=")";
-  return aggtypeWithattr;
-}
 
 GroupTupleSet::GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order):input_(input),order_(order){
   for(int i =select->attr_num-1;i!=-1;i--){
     if(select->attributes[i].agg_type!=ATF_NULL)
       agg_index.push_back({select->attr_num-1-i,select->attributes[i].agg_type});
+    if(select->attributes[i].relation_name==nullptr){
+      if(select->relation_num>1)
+        LOG_ERROR("Get no relation name");
+      select->attributes[i].relation_name = select->relations[0];
+    }
     // if(select->attributes[i].agg_type==ATF_NULL)
     //   by_index.push_back(select->attr_num-1-i);
     // else
@@ -784,14 +844,16 @@ GroupTupleSet::GroupTupleSet(TupleSet* input,Selects* select,const std::vector<s
     {
     //count和sum固定类型值
     case ATF_COUNT:
-      schema_.add(INTS,select->attributes[i].relation_name,schema_field_name(select->attributes[i].attribute_name,ATF_COUNT).c_str());
+      schema_.add_agg_field(INTS,select->attributes[i].relation_name,select->attributes[i].attribute_name,
+      select->attributes[i].agg_type);
       break;
     case ATF_AVG:
-      schema_.add(FLOATS,select->attributes[i].relation_name,schema_field_name(select->attributes[i].attribute_name,ATF_AVG).c_str());
+      schema_.add_agg_field(FLOATS,select->attributes[i].relation_name,select->attributes[i].attribute_name,
+      select->attributes[i].agg_type);
       break;
     default:
-      schema_.add(input_->get_schema().field(order_[select->attr_num-1-i].second).type(),select->attributes[i].relation_name,
-      schema_field_name(select->attributes[i].attribute_name,select->attributes[i].agg_type).c_str());
+      schema_.add_agg_field(input_->get_schema().field(order_[select->attr_num-1-i].second).type(),select->attributes[i].relation_name,
+      select->attributes[i].attribute_name,select->attributes[i].agg_type);
       break;
     }
   }
@@ -809,7 +871,7 @@ void GroupTupleSet::print(std::ostream &os,bool table_name){
     return;
   }
 
-  schema_.print(os,table_name);
+  schema_.print_with_agg(os,table_name);
 
   for(auto it = groups.begin();it!=groups.end();it++){
     const Tuple &item = *it->second;
@@ -906,21 +968,35 @@ RC GroupTupleSet::aggregates(){
   return RC::SUCCESS;
 }
 
-RC GroupTupleSet::set_by_field(Selects* select){
+RC GroupTupleSet::set_by_field(Selects* select,bool is_multitable){
   const TupleSchema& input_schema = input_->get_schema();
   for(size_t j=0;j!=input_schema.size();j++){
     LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
   }
-  for(size_t i=0;i!=select->group_attr_num;i++){
-    for(size_t j=0;j!=input_schema.size();j++){
-      //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
-      if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0
-        && std::strcmp(select->group_attr[i].relation_name,input_schema.field(j).table_name())==0){
-          by_index.push_back(j);
-          break;
-        }
+  if(is_multitable){
+    for(size_t i=0;i!=select->group_attr_num;i++){
+      for(size_t j=0;j!=input_schema.size();j++){
+        //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+        if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0
+          && std::strcmp(select->group_attr[i].relation_name,input_schema.field(j).table_name())==0){
+            by_index.push_back(j);
+            break;
+          }
+      }
     }
   }
+  else{
+    for(size_t i=0;i!=select->group_attr_num;i++){
+      for(size_t j=0;j!=input_schema.size();j++){
+        //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+        if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0){
+            by_index.push_back(j);
+            break;
+          }
+      }
+    }
+  }
+  
   if(by_index.size()!=select->group_attr_num){
     LOG_INFO("missing group field");
     return RC::SCHEMA_FIELD_NOT_EXIST;

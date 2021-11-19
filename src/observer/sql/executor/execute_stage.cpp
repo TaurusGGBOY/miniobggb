@@ -583,7 +583,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       }
       if(selects.group_attr_num!=0){
         GroupTupleSet group_set(&res_set.back(),_select,print_order);
-        rc = group_set.set_by_field(_select);
+        rc = group_set.set_by_field(_select,true);
         if(rc!=RC::SUCCESS){
           ss << "FAILURE\n";
           for (SelectExeNode *& tmp_node: select_nodes) {
@@ -608,12 +608,32 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       break;
     }
   } else {
-    // 当前只查询一张表，直接返回结果即可
-    if(order_tuples(selects,tuple_sets.front(),1)) {
-      tuple_sets.front().print(ss);
-    } else {
-      ss.clear();
-      ss << "FAILURE\n";
+    if(selects.group_attr_num!=0){
+      TupleSchema res_schema;
+      std::vector<std::pair<int,int>> print_order;
+      for(int i=0;i!=selects.attr_num;i++)
+        print_order.push_back({i,i});
+      GroupTupleSet group_set(&tuple_sets.front(),_select,print_order);
+      rc = group_set.set_by_field(_select,false);
+      if(rc!=RC::SUCCESS){
+        ss << "FAILURE\n";
+        for (SelectExeNode *& tmp_node: select_nodes) {
+          delete tmp_node;
+        }
+        end_trx_if_need(session, trx, true);
+        return rc;
+      }
+      group_set.aggregates();
+      group_set.print(ss,false);
+      }
+    else{
+      // 当前只查询一张表，直接返回结果即可
+      if(order_tuples(selects,tuple_sets.front(),1)) {
+        tuple_sets.front().print(ss);
+      } else {
+        ss.clear();
+        ss << "FAILURE\n";
+      }
     }
   }
 
@@ -735,7 +755,7 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
 
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
-    if(selects.group_attr_num!=0){
+    if(selects.group_attr_num!=0 && selects.relation_num>1){
       TupleSchema::from_table(table, schema);
       break; // 没有校验，给出* 之后，再写字段的错误
     }

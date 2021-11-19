@@ -70,12 +70,16 @@ private:
 
 class TupleField {
 public:
-  TupleField(AttrType type, const char *table_name, const char *field_name) :
-          type_(type), table_name_(table_name), field_name_(field_name){
+  TupleField(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag at) :
+          type_(type), table_name_(table_name), field_name_(field_name),agg_type_(at){
   }
 
   AttrType  type() const{
     return type_;
+  }
+
+  enum AggregationTypeFlag agg_type() const{
+    return agg_type_;
   }
 
   const char *table_name() const {
@@ -90,6 +94,7 @@ private:
   AttrType  type_;
   std::string table_name_;
   std::string field_name_;
+  enum AggregationTypeFlag agg_type_;
 };
 
 class TupleSchema {
@@ -98,6 +103,7 @@ public:
   ~TupleSchema() = default;
 
   void add(AttrType type, const char *table_name, const char *field_name);
+  void add_agg_field(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag af);
   void add_if_not_exists(AttrType type, const char *table_name, const char *field_name);
   // void merge(const TupleSchema &other);
   void append(const TupleSchema &other);
@@ -120,6 +126,7 @@ public:
   }
   void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& order) const;
   void print(std::ostream &os, bool table_name) const;
+  void print_with_agg(std::ostream &os,bool table_name);
 public:
   static void from_table(const Table *table, TupleSchema &schema);
 private:
@@ -198,9 +205,8 @@ class GroupTupleSet{
 public:
   GroupTupleSet(TupleSet* input,Selects* select,const std::vector<std::pair<int,int>>& order_);
   ~GroupTupleSet();
-  std::string schema_field_name(const char *attr_name,enum AggregationTypeFlag flag);
   std::string get_key(const Tuple& row);
-  RC set_by_field(Selects* select);
+  RC set_by_field(Selects* select,bool is_multitable);
   RC aggregates();
   void init_tuple(Tuple* init, const Tuple& ref);
   RC to_value(Value* value);
