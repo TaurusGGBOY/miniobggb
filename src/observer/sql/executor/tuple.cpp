@@ -904,7 +904,7 @@ void GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
       ((IntValue&)init->get(i)).plus(ref.get(order_[i].second));
       break;
     case CHARS:
-      init->add(((const StringValue&)ref.get(order_[i].second)).get_value().c_str(),((const StringValue&)ref.get(i)).get_value().size());
+      init->add(((const StringValue&)ref.get(order_[i].second)).get_value().c_str(),strlen(((const StringValue&)ref.get(i)).get_value().c_str()));
       break;
     case DATES:
       init->add_date(((const DateValue&)ref.get(order_[i].second)).get_value());
@@ -923,8 +923,6 @@ RC GroupTupleSet::aggregates(){
     if(!this->groups.count(key)){
       groups[key] = new Tuple;
       count[key] = 1;
-      if(is_multi)
-          return RC::ABORT;
       init_tuple(groups[key],row);
     }
     else{
