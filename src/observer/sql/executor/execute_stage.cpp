@@ -583,7 +583,6 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       }
       if(selects.group_attr_num!=0){
         GroupTupleSet group_set(&res_set.back(),_select,print_order);
-        return RC::ABORT;
         rc = group_set.set_by_field(_select,true);
         if(rc!=RC::SUCCESS){
           ss << "FAILURE\n";
@@ -594,6 +593,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
           return rc;
         }
         group_set.aggregates();
+        return RC::ABORT;
         group_set.print(ss,true);
       }
       else{
