@@ -948,6 +948,10 @@ RC GroupTupleSet::aggregates(){
       }
     }
   }
+
+  if(is_multi)
+    return RC::ABORT;
+
   for(auto it = groups.begin();it!=groups.end();it++){
     Tuple* grouprow = it->second;
     for(int j=0;j!=this->agg_index.size();j++){
@@ -974,6 +978,7 @@ RC GroupTupleSet::aggregates(){
 }
 
 RC GroupTupleSet::set_by_field(Selects* select,bool is_multitable){
+  is_multi = is_multitable;
   const TupleSchema& input_schema = input_->get_schema();
   for(size_t j=0;j!=input_schema.size();j++){
     LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());

@@ -212,6 +212,7 @@ public:
   RC to_value(Value* value);
   void print(std::ostream &os,bool table_name);
 private:
+  bool is_multi;
   std::unordered_map<std::string,Tuple*> groups;
   std::unordered_map<std::string,int> count;
   TupleSchema schema_;
