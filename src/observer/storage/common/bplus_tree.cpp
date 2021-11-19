@@ -1095,6 +1095,59 @@ RC BplusTreeHandler::delete_entry_from_node(PageNum node_page,const char *pkey) 
   return SUCCESS;
 }
 
+RC BplusTreeHandler::delete_entry_from_node_multi_index(PageNum node_page,const char *pkey, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens) {
+  BPPageHandle page_handle;
+  IndexNode *node;
+  char *pdata;
+  int delete_index,i,tmp;
+  RC rc;
+
+  rc = disk_buffer_pool_->get_this_page(file_id_, node_page, &page_handle);
+  if(rc!=SUCCESS){
+    return rc;
+  }
+
+  rc = disk_buffer_pool_->get_data(&page_handle, &pdata);
+  if(rc!=SUCCESS){
+    return rc;
+  }
+
+  node = get_index_node(pdata);
+
+  for(delete_index=0;delete_index<node->key_num;delete_index++){
+    tmp = CmpKeyList(node->keys + i * file_header_.key_length, pkey, offsets, types, lens, file_header_.attr_length);
+    if(tmp==0)
+      break;
+  }
+  if(delete_index>=node->key_num){
+    return RC::RECORD_INVALID_KEY;
+  }
+  i=delete_index;
+  while(i<(node->key_num-1)){
+    memcpy(node->keys+i*file_header_.key_length,node->keys+(i+1)*file_header_.key_length,file_header_.key_length);
+    i++;
+  }
+
+  if(node->is_leaf)
+    for(i=delete_index;i<(node->key_num-1);i++)
+      memcpy(node->rids+i,node->rids+i+1,sizeof(RID));
+  else
+    for(i=delete_index+1;i<node->key_num;i++)
+      memcpy(node->rids+i,node->rids+i+1,sizeof(RID));
+  node->key_num--;
+
+  rc = disk_buffer_pool_->mark_dirty(&page_handle);
+  if(rc!=SUCCESS){
+    return rc;
+  }
+  rc = disk_buffer_pool_->unpin_page(&page_handle);
+  if(rc!=SUCCESS){
+    return rc;
+  }
+
+  return SUCCESS;
+}
+
 RC BplusTreeHandler::coalesce_node(PageNum leaf_page,PageNum right_page)
 {
   BPPageHandle left_handle,right_handle,parent_handle,tmphandle;
@@ -1402,7 +1455,22 @@ RC BplusTreeHandler::delete_entry_internal(PageNum page_num,const char *pkey) {
   RC rc;
   int delete_index,min_key;
 
-  rc=delete_entry_from_node(page_num,pkey);
+  if(file_header_.attr_num>1){
+    std::vector<int> offsets;
+    std::vector<AttrType> types;
+    std::vector<int> lens;
+    int offset = 0;
+    for(int i = 0 ; i<file_header_.attr_num;i++){
+      offsets.push_back(offset);
+      types.push_back(file_header_.attr_list[i]);
+      lens.push_back(file_header_.len_list[i]);
+      offset+=file_header_.len_list[i];
+    }
+    rc=delete_entry_from_node_multi_index(page_num, pkey, offsets, types, lens);
+
+  }else{
+    rc=delete_entry_from_node(page_num,pkey);
+  }
   if(rc!=SUCCESS){
     return rc;
   }
@@ -1605,6 +1673,39 @@ RC BplusTreeHandler::delete_entry(const char *data, const RID *rid) {
   return SUCCESS;
 }
 
+RC BplusTreeHandler::delete_entry_multi_index(const char *record, const RID *rid, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens) {
+  RC rc;
+  PageNum leaf_page;
+  char *pkey, *key;
+  pkey=(char *)malloc(file_header_.attr_length);
+  key=(char *)malloc(file_header_.key_length);
+  if(nullptr == pkey){
+    LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
+    return RC::NOMEM;
+  }
+
+  // TODO change record->pkey
+  int offset = 0;
+  for(int i = 0; i< lens.size();i++){
+    memcpy(pkey+offset, record+offsets[i], lens[i]);
+    offset += lens[i];
+  }
+
+  memcpy(key,pkey,file_header_.attr_length);
+  memcpy(key + file_header_.attr_length, rid, sizeof(*rid));
+  rc= find_leaf_multi_index(key, &leaf_page, offsets, types, lens);
+  if(rc!=SUCCESS){
+    free(pkey);
+    return rc;
+  }
+  rc=delete_entry_internal(leaf_page,pkey);
+  if(rc!=SUCCESS){
+    free(pkey);
+    return rc;
+  }
+  free(pkey);
+  return SUCCESS;
+}
 
 RC BplusTreeHandler::print_tree() {
   BPPageHandle page_handle;

@@ -90,7 +90,7 @@ public:
    * @return RECORD_INVALID_KEY 指定值不存在
    */
   RC delete_entry(const char *pkey, const RID *rid);
-
+  RC delete_entry_multi_index(const char *record, const RID *rid, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   /**
    * 获取指定值的record
    * @param rid  返回值，记录记录所在的页面号和slot
@@ -113,6 +113,7 @@ protected:
   RC insert_intern_node_after_split(PageNum intern_page, PageNum leaf_page, PageNum right_page, const char *pkey);
 
   RC delete_entry_from_node(PageNum node_page, const char *pkey);
+  RC delete_entry_from_node_multi_index(PageNum node_page,const char *pkey, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   RC delete_entry_internal(PageNum page_num, const char *pkey);
   RC coalesce_node(PageNum leaf_page, PageNum right_page);
   RC redistribute_nodes(PageNum left_page, PageNum right_page);
