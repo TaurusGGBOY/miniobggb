@@ -40,6 +40,7 @@ public:
   void desc(std::ostream &os) const;
   const int field_num() const;
   const int have_one(std::vector<std::string> field_list) const;
+  const int compare_multi_index(std::vector<std::string> field_list) const;
 public:
   void to_json(Json::Value &json_value) const;
   static RC from_json(const TableMeta &table, const Json::Value &json_value, IndexMeta &index);
