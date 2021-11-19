@@ -948,6 +948,7 @@ RC GroupTupleSet::aggregates(){
       }
     }
   }
+  return RC::ABORT;
   for(auto it = groups.begin();it!=groups.end();it++){
     Tuple* grouprow = it->second;
     for(int j=0;j!=this->agg_index.size();j++){
