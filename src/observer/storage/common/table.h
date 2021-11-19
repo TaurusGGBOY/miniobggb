@@ -96,7 +96,7 @@ private:
   RC scan_record_by_index(Trx *trx, IndexScanner *scanner, ConditionFilter *filter, int limit, void *context, RC (*record_reader)(Record *record, void *context));
   IndexScanner *find_index_for_scan(const ConditionFilter *filter);
   IndexScanner *find_index_for_scan(const DefaultConditionFilter &filter);
-  IndexScanner *find_index_for_scan_by_list(std::vector<std::string> filter_attr_list);
+  IndexScanner *find_index_for_scan_by_list(std::vector<std::string> filter_attr_list, std::vector<std::string> value_list, std::vector<CompOp> comop_list);
 
   RC insert_record(Trx *trx, Record *record);
   RC delete_record(Trx *trx, Record *record);
@@ -116,6 +116,7 @@ private:
 
 private:
   Index *find_index(const char *index_name) const;
+  Index *find_index_multi_index(std::vector<std::string> filter_attr_list) const;
 
 private:
   std::string             base_dir_;

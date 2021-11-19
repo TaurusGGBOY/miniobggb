@@ -117,6 +117,18 @@ IndexScanner *BplusTreeIndex::create_scanner(CompOp comp_op, const char *value) 
   return index_scanner;
 }
 
+IndexScanner *BplusTreeIndex::create_scanner_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list) {
+  BplusTreeScanner *bplus_tree_scanner = new BplusTreeScanner(index_handler_);
+  RC rc = bplus_tree_scanner->open_multi_index(value_list, comop_list);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Failed to open index scanner. rc=%d:%s", rc, strrc(rc));
+    delete bplus_tree_scanner;
+    return nullptr;
+  }
+
+  BplusTreeIndexScanner *index_scanner = new BplusTreeIndexScanner(bplus_tree_scanner);
+  return index_scanner;
+}
 
 RC BplusTreeIndex::sync() {
   return index_handler_.sync();

@@ -1701,7 +1701,7 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
   memcpy(pkey, key, file_header_.attr_length);
   memcpy(pkey + file_header_.attr_length, &rid, sizeof(RID));
 
-  rc = find_leaf(pkey, &leaf_page);
+  rc= find_leaf(pkey, &leaf_page);
   if(rc != SUCCESS){
     free(pkey);
     return rc;
@@ -1738,6 +1738,94 @@ RC BplusTreeHandler::find_first_index_satisfied(CompOp compop, const char *key, 
         }
       }
       if(compop == GREAT_THAN){
+        if(tmp > 0){
+          rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
+          if(rc!=SUCCESS){
+            return rc;
+          }
+          *rididx=i;
+          rc = disk_buffer_pool_->unpin_page(&page_handle);
+          if(rc!=SUCCESS){
+            return rc;
+          }
+          return SUCCESS;
+        }
+      }
+
+    }
+    next=node->rids[file_header_.order-1].page_num;
+  }
+  rc = disk_buffer_pool_->unpin_page(&page_handle);
+  if(rc != SUCCESS){
+    return rc;
+  }
+  return RC::RECORD_EOF;
+}
+
+RC BplusTreeHandler::find_first_index_satisfied_multi_index(std::vector<CompOp> comop_list, const char *key, PageNum *page_num, int *rididx,  std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens) {
+  BPPageHandle page_handle;
+  IndexNode *node;
+  PageNum leaf_page,next;
+  char *pdata,*pkey;
+  RC rc;
+  int i,tmp;
+  RID rid;
+  if(comop_list[0] == LESS_THAN || comop_list[0] == LESS_EQUAL || comop_list[0] == NOT_EQUAL){
+    rc = get_first_leaf_page(page_num);
+    if(rc != SUCCESS){
+      return rc;
+    }
+    *rididx=0;
+    return SUCCESS;
+  }
+  rid.page_num = -1;
+  rid.slot_num = -1;
+  pkey=(char *)malloc(file_header_.key_length);
+  if(pkey == nullptr){
+    LOG_ERROR("Failed to alloc memory for key. size=%d", file_header_.key_length);
+    return RC::NOMEM;
+  }
+  memcpy(pkey, key, file_header_.attr_length);
+  memcpy(pkey + file_header_.attr_length, &rid, sizeof(RID));
+
+  rc= find_leaf_multi_index(pkey, &leaf_page, offsets, types, lens);
+  if(rc != SUCCESS){
+    free(pkey);
+    return rc;
+  }
+  free(pkey);
+
+
+  next=leaf_page;
+
+  while(next > 0){
+    rc = disk_buffer_pool_->get_this_page(file_id_, next, &page_handle);
+    if(rc!=SUCCESS){
+      return rc;
+    }
+    rc = disk_buffer_pool_->get_data(&page_handle, &pdata);
+    if(rc!=SUCCESS){
+      return rc;
+    }
+
+    node = get_index_node(pdata);
+    for(i = 0; i < node->key_num; i++){
+      tmp = CmpKeyList(node->keys + i * file_header_.key_length, pkey, offsets, types, lens, file_header_.attr_length);
+      if(comop_list[0] == EQUAL_TO || comop_list[0] == GREAT_EQUAL){
+        if(tmp>=0){
+          rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
+          if(rc != SUCCESS){
+            return rc;
+          }
+          *rididx=i;
+          rc = disk_buffer_pool_->unpin_page(&page_handle);
+          if(rc != SUCCESS){
+            return rc;
+          }
+          return SUCCESS;
+        }
+      }
+      if(comop_list[0] == GREAT_THAN){
         if(tmp > 0){
           rc = disk_buffer_pool_->get_page_num(&page_handle, page_num);
           if(rc!=SUCCESS){
@@ -1898,6 +1986,54 @@ RC BplusTreeScanner::open(CompOp comp_op,const char *value) {
   memcpy(value_copy, value, index_handler_.file_header_.attr_length);
   value_ = value_copy; // free value_
   rc = index_handler_.find_first_index_satisfied(comp_op, value, &next_page_num_, &index_in_node_);
+  if(rc != SUCCESS){
+    if(rc == RC::RECORD_EOF){
+      next_page_num_ = -1;
+      index_in_node_ = -1;
+    }
+    else
+      return rc;
+  }
+  num_fixed_pages_ = 1;
+  next_index_of_page_handle_=0;
+  pinned_page_count_ = 0;
+  opened_ = true;
+  return SUCCESS;
+}
+
+RC BplusTreeScanner::open_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list) {
+  RC rc;
+  if(opened_){
+    return RC::RECORD_OPENNED;
+  }
+
+  condition_num = value_list.size();
+
+  for(int i = 0 ; i < condition_num;i++){
+    comp_ops[i] = comop_list[i];
+    values[i] = value_list[i].c_str();
+  }
+
+  char *value_copy =(char *)malloc(index_handler_.file_header_.attr_length);
+  if(value_copy == nullptr){
+    LOG_ERROR("Failed to alloc memory for value. size=%d", index_handler_.file_header_.attr_length);
+    return RC::NOMEM;
+  }
+
+  std::vector<int> offsets;
+  std::vector<AttrType> types;
+  std::vector<int> lens;
+  int offset = 0;
+  for(int i = 0 ; i<condition_num;i++){
+    offsets.push_back(offset);
+    types.push_back(index_handler_.file_header_.attr_list[i]);
+    lens.push_back(index_handler_.file_header_.len_list[i]);
+    memcpy(value_copy, values[i], index_handler_.file_header_.len_list[i]);
+    offset+=index_handler_.file_header_.len_list[i];
+  }
+
+  value_ = value_copy; // free value_
+  rc = index_handler_.find_first_index_satisfied_multi_index(comop_list, value_, &next_page_num_, &index_in_node_, offsets,types, lens);
   if(rc != SUCCESS){
     if(rc == RC::RECORD_EOF){
       next_page_num_ = -1;

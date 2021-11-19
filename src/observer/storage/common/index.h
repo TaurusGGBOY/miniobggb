@@ -46,6 +46,7 @@ public:
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   virtual IndexScanner *create_scanner(CompOp comp_op, const char *value) = 0;
+  virtual IndexScanner *create_scanner_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list) = 0;
 
   virtual RC sync() = 0;
 
