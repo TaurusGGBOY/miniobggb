@@ -592,8 +592,10 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
           end_trx_if_need(session, trx, true);
           return rc;
         }
-        return RC::ABORT;
-        group_set.aggregates();
+        
+        rc = group_set.aggregates();
+        if(rc!=RC::SUCCESS)
+          return rc;
         group_set.print(ss,true);
       }
       else{
@@ -624,7 +626,9 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         end_trx_if_need(session, trx, true);
         return rc;
       }
-      group_set.aggregates();
+      rc = group_set.aggregates();
+      if(rc!=RC::SUCCESS)
+        return rc;
       group_set.print(ss,false);
       }
     else{
