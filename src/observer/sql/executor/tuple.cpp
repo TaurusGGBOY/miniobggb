@@ -923,9 +923,9 @@ RC GroupTupleSet::aggregates(){
     if(!this->groups.count(key)){
       groups[key] = new Tuple;
       count[key] = 1;
-      init_tuple(groups[key],row);
-        if(is_multi)
+      if(is_multi)
           return RC::ABORT;
+      init_tuple(groups[key],row);
     }
     else{
       Tuple* target = groups[key]; 
