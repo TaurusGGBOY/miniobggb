@@ -924,6 +924,8 @@ RC GroupTupleSet::aggregates(){
       groups[key] = new Tuple;
       count[key] = 1;
       init_tuple(groups[key],row);
+        if(is_multi)
+          return RC::ABORT;
     }
     else{
       Tuple* target = groups[key]; 
@@ -949,8 +951,7 @@ RC GroupTupleSet::aggregates(){
     }
   }
 
-  if(is_multi)
-    return RC::ABORT;
+
 
   for(auto it = groups.begin();it!=groups.end();it++){
     Tuple* grouprow = it->second;
