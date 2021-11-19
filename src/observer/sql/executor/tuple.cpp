@@ -948,7 +948,6 @@ RC GroupTupleSet::aggregates(){
       }
     }
   }
-  return RC::ABORT;
   for(auto it = groups.begin();it!=groups.end();it++){
     Tuple* grouprow = it->second;
     for(int j=0;j!=this->agg_index.size();j++){
@@ -961,6 +960,8 @@ RC GroupTupleSet::aggregates(){
         }
         case ATF_AVG:{
           FloatValue& fv = (FloatValue&)grouprow->get(agg_index[j].first);
+          if(count[it->first]==0)
+            return::ABORT;
           fv.set_value(fv.get_value()/count[it->first]);
           break;
         }
