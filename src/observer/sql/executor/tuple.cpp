@@ -917,6 +917,8 @@ void GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
 }
 
 RC GroupTupleSet::aggregates(){
+  if(is_multi)
+    return RC::ABORT;
   for(int i =0;i!=input_->size();i++){
     const Tuple& row = input_->get(i);
     std::string key = get_key(row);
