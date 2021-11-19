@@ -1154,6 +1154,15 @@ Index *Table::find_index(const char *index_name) const {
   return nullptr;
 }
 
+Index *Table::find_index_multi_index(std::vector<std::string> filter_attr_list) const {
+  for (Index *index: indexes_) {
+    if(0==index->index_meta().compare_multi_index(filter_attr_list)){
+      return index;
+    }
+  }
+  return nullptr;
+}
+
 IndexScanner *Table::find_index_for_scan(const DefaultConditionFilter &filter) {
   const ConDesc *field_cond_desc = nullptr;
   const ConDesc *value_cond_desc = nullptr;
@@ -1207,12 +1216,16 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   // TODO scan filter see if 
   const CompositeConditionFilter *composite_condition_filter = dynamic_cast<const CompositeConditionFilter *>(filter);
   std::vector<std::string> filter_attr_list;
+  std::vector<std::string> value_list;
+  std::vector<CompOp> comop_list;
   if (composite_condition_filter != nullptr) {
     int filter_num = composite_condition_filter->filter_num();
     for (int i = 0; i < filter_num; i++) {
         const DefaultConditionFilter* temp =
             dynamic_cast<const DefaultConditionFilter*>(
                 &composite_condition_filter->filter(i));
+        comop_list.push_back(temp->comp_op());
+
         if (temp->left().is_attr) {
             const FieldMeta* field_meta = table_meta_.find_field_by_offset(temp->left().attr_offset);
             if (nullptr == field_meta) {
@@ -1221,6 +1234,13 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
                 return nullptr;
             }
             filter_attr_list.push_back(field_meta->name());
+            if(temp->right().value==nullptr){
+              filter_attr_list.clear();
+              value_list.clear();
+              comop_list.clear();
+              break;
+            }
+            value_list.push_back((const char *)temp->right().value);
         } else if (temp->right().is_attr) {
           const FieldMeta* field_meta = table_meta_.find_field_by_offset(temp->right().attr_offset);
             if (nullptr == field_meta) {
@@ -1229,17 +1249,29 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
                 return nullptr;
             }
             filter_attr_list.push_back(field_meta->name());
+            if(temp->left().value==nullptr){
+              filter_attr_list.clear();
+              value_list.clear();
+              comop_list.clear();
+              break;
+            }
+            value_list.push_back((const char *)temp->left().value);
         } else {
             filter_attr_list.clear();
+            value_list.clear();
+            comop_list.clear();
             break;
         }
     }
   }
 
-  IndexScanner *scanner= find_index_for_scan_by_list(filter_attr_list);
-  if (scanner != nullptr) {
-    return scanner; 
+  if(comop_list.size()>0){
+    IndexScanner *scanner= find_index_for_scan_by_list(filter_attr_list, value_list, comop_list);
+    if (scanner != nullptr) {
+      return scanner; 
+    }
   }
+ 
   if (composite_condition_filter != nullptr) {
     int filter_num = composite_condition_filter->filter_num();
     for (int i = 0; i < filter_num; i++) {
@@ -1252,9 +1284,12 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   return nullptr;
 }
 
-IndexScanner *Table::find_index_for_scan_by_list(std::vector<std::string> filter_attr_list){
-  // TODO
-  return nullptr;
+IndexScanner *Table::find_index_for_scan_by_list(std::vector<std::string> filter_attr_list, std::vector<std::string> value_list, std::vector<CompOp> comop_list){
+  Index* index = find_index_multi_index(filter_attr_list);
+  if(nullptr == index){
+    return nullptr;
+  }
+  return index->create_scanner_multi_index(value_list, comop_list);
 }
 
 RC Table::sync() {

@@ -90,7 +90,7 @@ public:
    * @return RECORD_INVALID_KEY 指定值不存在
    */
   RC delete_entry(const char *pkey, const RID *rid);
-
+  RC delete_entry_multi_index(const char *record, const RID *rid, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   /**
    * 获取指定值的record
    * @param rid  返回值，记录记录所在的页面号和slot
@@ -113,11 +113,13 @@ protected:
   RC insert_intern_node_after_split(PageNum intern_page, PageNum leaf_page, PageNum right_page, const char *pkey);
 
   RC delete_entry_from_node(PageNum node_page, const char *pkey);
+  RC delete_entry_from_node_multi_index(PageNum node_page,const char *pkey, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   RC delete_entry_internal(PageNum page_num, const char *pkey);
   RC coalesce_node(PageNum leaf_page, PageNum right_page);
   RC redistribute_nodes(PageNum left_page, PageNum right_page);
 
   RC find_first_index_satisfied(CompOp comp_op, const char *pkey, PageNum *page_num, int *rididx);
+  RC find_first_index_satisfied_multi_index(std::vector<CompOp> comop_list, const char *key, PageNum *page_num, int *rididx,  std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   RC get_first_leaf_page(PageNum *leaf_page);
   RC find_leaf_multi_index(const char *pkey, PageNum *leaf_page, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
 private:
@@ -144,6 +146,7 @@ public:
    */
   RC open(CompOp comp_op, const char *value);
 
+  RC open_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list);
   /**
    * 用于继续索引扫描，获得下一个满足条件的索引项，
    * 并返回该索引项对应的记录的ID
