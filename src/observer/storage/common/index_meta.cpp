@@ -123,6 +123,9 @@ const int IndexMeta::field_num() const{
 
 const int IndexMeta::compare_multi_index(std::vector<std::string> field_list) const{
   int cmp = 0;
+  if(field_list_->size()!=field_list.size()){
+    return field_list_->size()-field_list.size();
+  }
   for (int i = 0; i < field_list.size(); i++) {
     cmp = field_list_[i].compare(field_list[i]);
       if (cmp != 0) {
