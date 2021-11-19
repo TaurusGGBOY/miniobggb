@@ -962,7 +962,7 @@ RC GroupTupleSet::aggregates(){
           FloatValue& fv = (FloatValue&)grouprow->get(agg_index[j].first);
           if(count[it->first]==0)
             return::ABORT;
-          fv.set_value(fv.get_value()/count[it->first]);
+          fv.set_value((float)fv.get_value()/count[it->first]);
           break;
         }
         default:
