@@ -510,9 +510,9 @@ enum AggregationTypeFlag match_aggtype(const char* type_name){
     return ATF_AVG;
   }else if(std::regex_match(typestr,std::regex("[Cc][Oo][Uu][Nn][Tt]"))){
     return ATF_COUNT;
-  }else{
-    LOG_ERROR("failed to parse aggregation type of %s!",type_name);
   }
+  LOG_ERROR("failed to parse aggregation type of %s!",type_name);
+  return ATF_NULL;
 }
 
 void aggregates_append_field(Aggregates *aggregates,const char* relation_name,const char *attribute_name,

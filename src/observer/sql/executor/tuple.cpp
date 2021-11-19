@@ -724,6 +724,9 @@ RC RecordAggregater::get_condition_value(Value* conditionvalue){
       case CHARS:
         conditionvalue->data = strdup((char*)p->first);
       break;
+      default:
+        LOG_ERROR("Got unsupported type %d",field_[0].first->type());
+      break;
     }
   }
     break;
