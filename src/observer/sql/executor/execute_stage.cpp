@@ -592,8 +592,8 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
           end_trx_if_need(session, trx, true);
           return rc;
         }
-        group_set.aggregates();
         return RC::ABORT;
+        group_set.aggregates();
         group_set.print(ss,true);
       }
       else{
