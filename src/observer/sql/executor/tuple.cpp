@@ -909,7 +909,7 @@ RC GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
       ((IntValue&)init->get(i)).plus(ref.get(order_[i].second));
       break;
     case CHARS:
-      init->add(((const StringValue&)ref.get(order_[i].second)).get_value().c_str(),strlen(((const StringValue&)ref.get(i)).get_value().c_str()));
+      init->add(((const StringValue&)ref.get(order_[i].second)).get_value().c_str(),strlen(((const StringValue&)ref.get(order_[i].second)).get_value().c_str()));
       break;
     case DATES:
       init->add_date(((const DateValue&)ref.get(order_[i].second)).get_value());
@@ -919,8 +919,6 @@ RC GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
       break;
     }
   }
-  if(is_multi)
-    return RC::ABORT;
   return RC::SUCCESS;
 }
 
