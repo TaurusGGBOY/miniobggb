@@ -425,6 +425,7 @@ update:			/*  update 语句的语法解析树*/
     ;
 select:				/*  select 语句的语法解析树*/
 	EXPRESSION SEMICOLON{
+		printf("1111\n");
 	}
 	|	SELECT agg_field  FROM ID where SEMICOLON
 		{
@@ -699,6 +700,7 @@ attr_list:
 			relation_attr_init(&attr, $4,$6, $2);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	| COMMA EXPRESSION attr_list{
+		printf("33333\n");
 	}
   	;
 
@@ -749,8 +751,12 @@ condition:
 	|ID DOT ID comOp EXPRESSION{}
 	|EXPRESSION comOp ID DOT ID{}
 	|value comOp EXPRESSION{}
-	|EXPRESSION comOp value{}
-	|EXPRESSION comOp EXPRESSION{}
+	|EXPRESSION comOp value{
+		printf("22222\n");
+	}
+	|EXPRESSION comOp EXPRESSION{
+		printf("4444\n");
+	}
 	 | ID comOp value 
 		{	
 			RelAttr left_attr;
