@@ -1569,6 +1569,10 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
+
+  //合代码出问题了，下推所有字段
+  //TupleSchema::from_table(table, schema);
+  
   LOG_DEBUG("add %s table schema",table->name());
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
@@ -1587,21 +1591,58 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
         }
       }
     }
-    else if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
-      //如果不是表达式，走原有逻辑
-      if (0 == strcmp("*", attr.attribute_name)) {
-        // 列出这张表所有字段
+    else {
+      if(selects.group_attr_num!=0 && selects.relation_num>1){
         TupleSchema::from_table(table, schema);
         break; // 没有校验，给出* 之后，再写字段的错误
-      } else  {
-        // 列出这张表相关字段
-        RC rc = schema_add_field(table, attr.attribute_name, schema);
-        if (rc != RC::SUCCESS) {
-          return rc;
+      }
+      if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
+        if (0 == strcmp("*", attr.attribute_name))  {
+          // 列出这张表所有字段
+          TupleSchema::from_table(table, schema);
+          break; // 没有校验，给出* 之后，再写字段的错误
+        } else {
+          // 列出这张表相关字段
+          RC rc = schema_add_field(table, attr.attribute_name, schema);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
         }
       }
     }
   }
+//  for (int i = selects.attr_num - 1; i >= 0; i--) {
+//    const RelAttr &attr = selects.attributes[i];
+//    if(attr.exp!= nullptr) {
+//      //如果是表达式，找出字段下推到表扫描中
+//      LOG_DEBUG("field %s is a exp",attr.exp);
+//      std::string s1(attr.exp);
+//      for(int i=0;i<table->table_meta().field_num();++i) {
+//        auto field=table->table_meta().field(i);
+//        if(s1.find(std::string(table_name)+"."+field->name())!=s1.npos || s1.find(field->name())!=s1.npos) {
+//          RC rc = schema_add_field(table, field->name(), schema);
+//          LOG_DEBUG("select field is exp,add field %s.%s to schema",table->name(),field->name());
+//          if (rc != RC::SUCCESS) {
+//            return rc;
+//          }
+//        }
+//      }
+//    }
+//    else if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
+//      //如果不是表达式，走原有逻辑
+//      if (0 == strcmp("*", attr.attribute_name)) {
+//        // 列出这张表所有字段
+//        TupleSchema::from_table(table, schema);
+//        break; // 没有校验，给出* 之后，再写字段的错误
+//      } else  {
+//        // 列出这张表相关字段
+//        RC rc = schema_add_field(table, attr.attribute_name, schema);
+//        if (rc != RC::SUCCESS) {
+//          return rc;
+//        }
+//      }
+//    }
+//  }
 
   // 找出仅与此表相关的过滤条件, 或者都是值的过滤条件
   std::vector<DefaultConditionFilter *> condition_filters;
