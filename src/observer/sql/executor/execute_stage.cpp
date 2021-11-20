@@ -34,6 +34,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include <algorithm>
+#include <stack>
+#include <set>
 
 using namespace common;
 
@@ -274,6 +276,10 @@ bool check_multi_table_condition(TupleSchema& schema,const Selects& selects, std
   for(int i=0;i< selects.condition_num;++i){
     auto curr=selects.conditions[i];
     //多表查询不允许表名为空
+    if((curr.left_is_attr&&curr.left_attr.exp!=nullptr) || (curr.right_is_attr&&curr.right_attr.exp!=nullptr)){
+      LOG_DEBUG("condition is exp,ignore multi table condition");
+      continue;
+    }
     if(curr.left_is_attr && curr.left_attr.relation_name== nullptr) {
       LOG_DEBUG("multi table select:relation name is null");
       return false;
@@ -477,6 +483,323 @@ bool order_tuples(const Selects &selects, TupleSet& tuple_set, int size) {
   tuple_set.sort(Comparator(order_fields));
   return true;
 }
+bool check_expression(const char* exp) {
+  std::string ss(exp);
+  for(char s:ss) {
+    if((s>='a'&&s<='z')||(s>='A'&&s<='Z')) {
+      LOG_DEBUG("%s is a invalid exp",exp);
+      return false;
+    }
+  }
+  LOG_DEBUG("%s is a valid exp",exp);
+  return true;
+}
+
+float calculate(std::string s) {
+  LOG_DEBUG("expression is %s",s.c_str());
+  std::stack<float> st;
+  float num = 0;
+  float result = 0;
+  int op ='+';
+  bool decimal=false;
+  float help=10;
+  for (int i = 0; i < s.size(); i++) {
+    char c = s[i];
+    if (isdigit(c) || c=='.') {
+      if(c=='.') {
+        decimal=true;
+      } else if(decimal) {
+        num = num + (c-'0')/help;
+        help*=10;
+      } else {
+        num = num * 10 + c - '0';
+      }
+    }
+    else if (c == '(') {
+      int j = i, count = 0;
+      for (;i < s.size(); i++) {
+        if (s[i] == '(') count ++;
+        if (s[i] == ')') count --;
+        if (count == 0) break;
+      }
+      num = calculate(s.substr(j + 1, i - j - 1));
+    }
+    if (c!='.'&& !isdigit(c) && !isspace(c) || i == s.size() - 1){
+      if (op == '+') st.push(num);
+      if (op == '-') st.push(-num);
+      if (op == '*' || op == '/') {
+        float top = st.top();
+        st.pop();
+        if (op == '*') st.push(top * num);
+        if (op == '/') st.push(top / num);
+      }
+      op = s[i];
+      num = 0;
+      decimal=false;
+      help=10;
+    }
+  }
+
+  while (!st.empty()) {
+    result += st.top();
+    st.pop();
+  }
+  return result;
+}
+
+RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, bool is_multi, TupleSet& new_set) {
+  std::set<int> filter;
+  LOG_DEBUG("start filte exp condition");
+  for(int i=0;i<num;++i) {
+    auto curr=conditions[i];
+    if((curr.left_is_attr&&curr.left_attr.exp==nullptr && curr.right_is_attr&&curr.right_attr.exp==nullptr)
+        ||(curr.left_is_attr&&curr.left_attr.exp==nullptr && !curr.right_is_attr)
+        ||(!curr.left_is_attr && curr.right_is_attr&& curr.right_attr.exp== nullptr)
+        ||(!curr.left_is_attr && !curr.right_is_attr)
+        ) {
+      LOG_DEBUG("condition is not exp,continue");
+      continue;
+    }
+    float l_f=0;
+    int l_i=0;
+    int tuple_index=0;
+    for(const Tuple& tuple:old.tuples()) {
+      //如果左边是表达式
+      if(curr.left_is_attr&&curr.left_attr.exp!=nullptr) {
+        std::string exp(curr.left_attr.exp);
+        //开始替换字符串
+        LOG_DEBUG("left is exp, %s",exp.c_str());
+        for(int i=0;i<old.get_schema().size();++i) {
+          LOG_DEBUG("try to replace field:%s",old.get_schema().field(i).to_string_without_type().c_str());
+          if(is_multi) {
+            while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+              int length=old.get_schema().field(i).to_string_without_type().size();
+              std::stringstream ss;
+              value.to_string(ss);
+              exp.replace(begin,length,ss.str().c_str());
+              LOG_DEBUG("after replace exp is %s",exp.c_str());
+            }
+          } else {
+            //如果是单表，可能是不带表名字的
+            while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                LOG_DEBUG("field:%s is type:%d, invalid exp",old.get_schema().field(i).to_string().c_str(),value.get_type());
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+              int length=old.get_schema().field(i).to_string_without_type().size();
+              std::stringstream ss;
+              value.to_string(ss);
+              exp.replace(begin,length,ss.str().c_str());
+              LOG_DEBUG("after replace exp is %s",exp.c_str());
+            }
+            while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                LOG_DEBUG("field:%s is type:%d, invalid exp",old.get_schema().field(i).to_string_without_type().c_str(),value.get_type());
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).field_name());
+              int length=strlen(old.get_schema().field(i).field_name());
+              std::stringstream ss;
+              value.to_string(ss);
+              LOG_DEBUG("replace field:%s,begin:%d,length:%d",old.get_schema().field(i).field_name(),begin,length);
+              exp.replace(begin,length,ss.str().c_str());
+              LOG_DEBUG("after replace exp is %s",exp.c_str());
+            }
+          }
+        }
+        //判断替换后是否合法，指判断是否有非法字段，不判断四则运算是否合法
+        if(!check_expression(exp.c_str())) {
+          return RC::INVALID_EXP;
+        }
+        //todo：判断四则运算表达式是否合法
+        //如果合法，开始计算
+        l_f= calculate(exp);
+        LOG_DEBUG("left exp value is %f",l_f);
+      } else if(curr.left_is_attr) {
+        //如果左边是字段
+        if(is_multi&&curr.left_attr.relation_name== nullptr) {
+          return RC::INVALID_EXP;
+        }
+        int field_index=old.get_field_index(curr.left_attr.relation_name,curr.left_attr.attribute_name);
+        if(field_index==-1) {
+          return RC::INVALID_EXP;
+        }
+        auto value=tuple.get_pointer(field_index);
+        //有表达式必须是int或者float
+        if(value->get_type()!=INTS&&value->get_type()!=FLOATS) {
+          return RC::INVALID_EXP;
+        }
+        if(value->get_type()==INTS) {
+          IntValue* iv= dynamic_cast<IntValue *>(value.get());
+          l_f=iv->get_value();
+        }
+        if(value->get_type()==FLOATS) {
+          FloatValue* fv= dynamic_cast<FloatValue *>(value.get());
+          l_f=fv->get_value();
+        }
+        LOG_DEBUG("left is field,%f",l_f);
+      } else {
+        //如果左边是个值
+        if(curr.left_value.type!=INTS && curr.left_value.type!=FLOATS) {
+          return RC::INVALID_EXP;
+        }
+        if(curr.left_value.type==INTS) {
+          l_f=*(int*)curr.left_value.data;
+        }
+        if(curr.left_value.type==FLOATS) {
+          l_f=*(float*)curr.left_value.data;
+        }
+        LOG_DEBUG("left is value, %f",l_f);
+      }
+      //如果右边是表达式
+      float r_f=0;
+      if(curr.right_is_attr&& curr.right_attr.exp!= nullptr) {
+        std::string exp(curr.right_attr.exp);
+        //开始替换字符串
+        LOG_DEBUG("right is exp, %s",exp.c_str());
+        for(int i=0;i<old.get_schema().size();++i) {
+          if(is_multi) {
+            while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+              int length=old.get_schema().field(i).to_string_without_type().size();
+              std::stringstream ss;
+              value.to_string(ss);
+              exp.replace(begin,length,ss.str().c_str());
+            }
+          } else {
+            //如果是单表，可能是不带表名字的
+            while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+              int length=old.get_schema().field(i).to_string_without_type().size();
+              std::stringstream ss;
+              value.to_string(ss);
+              exp.replace(begin,length,ss.str().c_str());
+            }
+            while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
+              const TupleValue& value=tuple.get(i);
+              if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+                return RC::INVALID_EXP;
+              }
+              int begin=exp.find(old.get_schema().field(i).field_name());
+              int length=strlen(old.get_schema().field(i).field_name());
+              std::stringstream ss;
+              value.to_string(ss);
+              exp.replace(begin,length,ss.str().c_str());
+            }
+          };
+        }
+        //判断替换后是否合法，指判断是否有非法字段，不判断四则运算是否合法
+        if(!check_expression(exp.c_str())) {
+          return RC::INVALID_EXP;
+        }
+        //todo：判断四则运算表达式是否合法
+        //如果合法，开始计算
+        r_f= calculate(exp);
+        LOG_DEBUG("right exp value is %f",r_f);
+      } else if(curr.right_is_attr) {
+        //如果右边是字段
+        LOG_DEBUG("right is field");
+        int field_index=old.get_field_index(curr.right_attr.relation_name,curr.right_attr.attribute_name);
+        if(is_multi&&curr.right_attr.relation_name== nullptr) {
+          return RC::INVALID_EXP;
+        }
+        if(field_index==-1) {
+          return RC::INVALID_EXP;
+        }
+        auto value=tuple.get_pointer(field_index);
+        //有表达式必须是int或者float
+        if(value->get_type()!=INTS&&value->get_type()!=FLOATS) {
+          LOG_DEBUG("right field type is %d",value->get_type());
+          return RC::INVALID_EXP;
+        }
+
+        if(value->get_type()==INTS) {
+          IntValue* iv= dynamic_cast<IntValue *>(value.get());
+          r_f=iv->get_value();
+        }
+        LOG_DEBUG("right is field");
+        if(value->get_type()==FLOATS) {
+          FloatValue* fv= dynamic_cast<FloatValue *>(value.get());
+          r_f=fv->get_value();
+        }
+        LOG_DEBUG("right is field, %f",r_f);
+      } else {
+        //如果右边是个值
+        LOG_DEBUG("right is value");
+        if(curr.right_value.type!=INTS && curr.right_value.type!=FLOATS) {
+          return RC::INVALID_EXP;
+        }
+        if(curr.right_value.type==INTS) {
+          r_f=*(int*)curr.right_value.data;
+        }
+        if(curr.right_value.type==FLOATS) {
+          r_f=*(float*)curr.right_value.data;
+        }
+        LOG_DEBUG("right is value, %f",r_f);
+      }
+
+      if(curr.comp == EQUAL_TO) {
+        if(l_f!=r_f) {
+          filter.insert(tuple_index);
+        }
+      }
+      else if(curr.comp == LESS_EQUAL) {
+        if(l_f >r_f) {
+          filter.insert(tuple_index);
+        }
+      }
+      else if(curr.comp == NOT_EQUAL) {
+        if(l_f ==r_f) {
+          filter.insert(tuple_index);
+        }
+      }
+      else if(curr.comp == LESS_THAN) {
+        if(l_f>=r_f) {
+          filter.insert(tuple_index);
+        }
+      } else if(curr.comp == GREAT_EQUAL) {
+        if(l_f<r_f) {
+          filter.insert(tuple_index);
+        }
+      } else if(curr.comp == GREAT_THAN) {
+        if(l_f<=r_f) {
+          filter.insert(tuple_index);
+        }
+      } else {
+        return RC::INVALID_EXP;
+      }
+      tuple_index+=1;
+    }
+  }
+  for(int i=0;i<old.tuples().size();++i) {
+    if(filter.find(i)!=filter.end()) {
+      continue;
+    }
+    Tuple new_tuple;
+    for(auto f:old.tuples()[i].values()){
+      new_tuple.add(f);
+    }
+    LOG_DEBUG("add value to new tuple");
+    new_set.add(std::move(new_tuple));
+  }
+  return RC::SUCCESS;
+}
 
   // 这里没有对输入的某些信息做合法性校验，比如查询的列名、where条件中的列名等，没有做必要的合法性校验
 // 需要补充上这一部分. 校验部分也可以放在resolve，不过跟execution放一起也没有关系
@@ -581,19 +904,31 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         LOG_DEBUG("get print order condition failure");
         break;
       }
+      TupleSet exp_set;
+      if(expression_condition(res_set.back(),selects.condition_num,selects.conditions, true,exp_set)!=RC::SUCCESS) {
+        break;
+      }
       //获取最终打印表
       //TupleSet res;
       //res.set_schema(res_schema);
       //tuples.clear();
       //cond_record.clear();
       //print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
-      res_set.back().print_by_order(ss,print_order);
+      exp_set.set_schema(res_set.back().get_schema());
+      exp_set.print_by_order(ss,print_order);
       break;
     }
   } else {
     // 当前只查询一张表，直接返回结果即可
     if(order_tuples(selects,tuple_sets.front(),1)) {
-      tuple_sets.front().print(ss);
+      TupleSet res_set;
+      if(expression_condition(tuple_sets.front(),selects.condition_num,selects.conditions,false,res_set)==RC::SUCCESS) {
+        res_set.set_schema(tuple_sets.front().get_schema());
+        res_set.print(ss);
+      } else {
+        ss.clear();
+        ss << "FAILURE\n";
+      }
     } else {
       ss.clear();
       ss << "FAILURE\n";
@@ -715,7 +1050,7 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
-
+  LOG_DEBUG("add %s table schema",table->name());
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
     if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
@@ -737,43 +1072,97 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
   std::vector<DefaultConditionFilter *> condition_filters;
   for (size_t i = 0; i < selects.condition_num; i++) {
     const Condition &condition = selects.conditions[i];
-    if ((condition.left_is_attr == 0 && condition.right_is_attr == 0) || // 两边都是值
-        (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(selects, condition.left_attr.relation_name, table_name)) ||  // 左边是属性右边是值
-        (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
-        (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
-            match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)) // 左右都是属性名，并且表名都符合
-        ) {
-      DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
-      RC rc = condition_filter->init(*table, condition);
-      if (rc != RC::SUCCESS) {
-        delete condition_filter;
-        for (DefaultConditionFilter * &filter : condition_filters) {
-          delete filter;
-        }
-        return rc;
-      }
-      condition_filters.push_back(condition_filter);
-    }
-    //如果两边都是attr，拿属于自己的去查表，多表查询做过滤需要
-    else if( condition.left_is_attr == 1 && condition.right_is_attr == 1) {
-      if(condition.left_attr.relation_name==nullptr || condition.right_attr.relation_name == nullptr) {
-        return RC::INVALID_ARGUMENT;
-      }
-      if(strcmp(condition.left_attr.relation_name,table_name) == 0 ) {
-        RC rc = schema_add_field(table, condition.left_attr.attribute_name, schema);
-        if (rc != RC::SUCCESS) {
-          return rc;
+    if (condition.left_attr.exp != nullptr && condition.right_attr.exp != nullptr) {
+      LOG_DEBUG("left and right is exp");
+      std::string s1(condition.left_attr.exp);
+      for(int i=0;i<table->table_meta().field_num();++i) {
+        auto field=table->table_meta().field(i);
+        if(s1.find(std::string(table_name)+"."+field->name())!=s1.npos || s1.find(field->name())!=s1.npos) {
+          RC rc = schema_add_field(table, field->name(), schema);
+          LOG_DEBUG("left is exp,add field %s.%s to schema",table->name(),field->name());
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
         }
       }
-      if(strcmp(condition.right_attr.relation_name,table_name) == 0) {
-        RC rc = schema_add_field(table, condition.right_attr.attribute_name, schema);
+      std::string s2(condition.right_attr.exp);
+      for(int i=0;i<table->table_meta().field_num();++i) {
+        auto field=table->table_meta().field(i);
+        if(s2.find(std::string(table_name)+"."+field->name())!=s2.npos || s2.find(field->name())!=s2.npos) {
+          RC rc = schema_add_field(table, field->name(), schema);
+          LOG_DEBUG("right is exp,add field %s.%s to schema",table->name(),field->name());
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+      }
+
+    } else if(condition.left_attr.exp == nullptr && condition.right_attr.exp != nullptr) {
+      LOG_DEBUG("right is exp");
+      std::string s1(condition.right_attr.exp);
+      for(int i=0;i<table->table_meta().field_num();++i) {
+        auto field=table->table_meta().field(i);
+        if(s1.find(std::string(table_name)+"."+field->name())!=s1.npos || s1.find(field->name())!=s1.npos) {
+          RC rc = schema_add_field(table, field->name(), schema);
+          LOG_DEBUG("right is exp,add field %s.%s to schema",table->name(),field->name());
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+      }
+    } else if(condition.left_attr.exp != nullptr && condition.right_attr.exp == nullptr) {
+      LOG_DEBUG("left is exp");
+      std::string s2(condition.left_attr.exp);
+      for(int i=0;i<table->table_meta().field_num();++i) {
+        auto field=table->table_meta().field(i);
+        if(s2.find(std::string(table_name)+"."+field->name())!=s2.npos || s2.find(field->name())!=s2.npos) {
+          RC rc = schema_add_field(table, field->name(), schema);
+          LOG_DEBUG("left is exp,add field %s.%s to schema",table->name(),field->name());
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+      }
+    } else {
+
+      if ((condition.left_is_attr == 0 && condition.right_is_attr == 0) || // 两边都是值
+          (condition.left_is_attr == 1 && condition.right_is_attr == 0 && match_table(selects, condition.left_attr.relation_name, table_name)) ||  // 左边是属性右边是值
+          (condition.left_is_attr == 0 && condition.right_is_attr == 1 && match_table(selects, condition.right_attr.relation_name, table_name)) ||  // 左边是值，右边是属性名
+          (condition.left_is_attr == 1 && condition.right_is_attr == 1 &&
+           match_table(selects, condition.left_attr.relation_name, table_name) && match_table(selects, condition.right_attr.relation_name, table_name)) // 左右都是属性名，并且表名都符合
+          ) {
+        DefaultConditionFilter *condition_filter = new DefaultConditionFilter();
+        RC rc = condition_filter->init(*table, condition);
         if (rc != RC::SUCCESS) {
+          delete condition_filter;
+          for (DefaultConditionFilter * &filter : condition_filters) {
+            delete filter;
+          }
           return rc;
+        }
+        condition_filters.push_back(condition_filter);
+      }
+        //如果两边都是attr，拿属于自己的去查表，多表查询做过滤需要
+      else if( condition.left_is_attr == 1 && condition.right_is_attr == 1) {
+        if(condition.left_attr.relation_name==nullptr || condition.right_attr.relation_name == nullptr) {
+          return RC::INVALID_ARGUMENT;
+        }
+        if(strcmp(condition.left_attr.relation_name,table_name) == 0 ) {
+          RC rc = schema_add_field(table, condition.left_attr.attribute_name, schema);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+        if(strcmp(condition.right_attr.relation_name,table_name) == 0) {
+          RC rc = schema_add_field(table, condition.right_attr.attribute_name, schema);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
         }
       }
     }
   }
-
+  LOG_DEBUG("schema size is %d",schema.size());
   return select_node.init(trx, table, std::move(schema), std::move(condition_filters));
 }
 

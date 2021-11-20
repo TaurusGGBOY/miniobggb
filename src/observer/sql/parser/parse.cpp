@@ -59,6 +59,13 @@ void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const
     relation_attr->relation_name = nullptr;
   }
   relation_attr->attribute_name = strdup(attribute_name);
+  relation_attr->exp= nullptr;
+}
+
+void relation_exp_attr_init(RelAttr *relation_attr, const char *exp) {
+  relation_attr->agg_type = ATF_NULL;
+  relation_attr->exp= strdup(exp);
+  LOG_DEBUG("condition is exp:%s",exp);
 }
 
 void relation_attr_destroy(RelAttr *relation_attr) {
@@ -120,6 +127,8 @@ void condition_init(Condition *condition, CompOp comp,
   condition->left_attr.relation_name = nullptr;
   condition->right_attr.attribute_name = nullptr;
   condition->right_attr.relation_name = nullptr;
+  condition->left_attr.exp= nullptr;
+  condition->right_attr.exp= nullptr;
 
   // if(condition->in_set!=nullptr||condition->in_select!=nullptr){
   //   LOG_WARN("pointer leakage!");
