@@ -1411,42 +1411,17 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       break;
     }
   } else {
-    if(selects.group_attr_num!=0){
-      TupleSchema res_schema;
-      std::vector<std::pair<int,int>> print_order;
-      for(int i=0;i!=selects.attr_num;i++)
-        print_order.push_back({i,i});
-      GroupTupleSet group_set(&tuple_sets.front(),_select,print_order);
-      rc = group_set.set_by_field(_select,false);
-      if(rc!=RC::SUCCESS){
-        ss << "FAILURE\n";
-        for (SelectExeNode *& tmp_node: select_nodes) {
-          delete tmp_node;
-        }
-        end_trx_if_need(session, trx, true);
-        return rc;
-      }
-      rc = group_set.aggregates();
-      if(rc!=RC::SUCCESS)
-        return rc;
-      group_set.print(ss,false);
-    }
-    else{
     // 当前只查询一张表，直接返回结果即可
-      if(order_tuples(selects,tuple_sets.front(),1)) {
-        std::vector<TupleSet> res_sets;
-        TupleSet res_set;
-        res_sets.emplace_back(std::move(res_set));
-        if(expression_condition(tuple_sets.front(),selects.condition_num,selects.conditions,false,res_sets.back())==RC::SUCCESS) {
-          res_sets.back().set_schema(tuple_sets.front().get_schema());
-          if(field_expression(res_sets.back(),selects.attr_num,selects.attributes, false)==RC::SUCCESS) {
-            TupleSchema res_schema;
-            auto print_order=get_print_order_single(selects,res_sets,res_schema);
-            res_sets.back().print_by_order(ss,print_order, false);
-          } else {
-            ss.clear();
-            ss << "FAILURE\n";
-          }
+    if(order_tuples(selects,tuple_sets.front(),1)) {
+      std::vector<TupleSet> res_sets;
+      TupleSet res_set;
+      res_sets.emplace_back(std::move(res_set));
+      if(expression_condition(tuple_sets.front(),selects.condition_num,selects.conditions,false,res_sets.back())==RC::SUCCESS) {
+        res_sets.back().set_schema(tuple_sets.front().get_schema());
+        if(field_expression(res_sets.back(),selects.attr_num,selects.attributes, false)==RC::SUCCESS) {
+          TupleSchema res_schema;
+          auto print_order=get_print_order_single(selects,res_sets,res_schema);
+          res_sets.back().print_by_order(ss,print_order, false);
         } else {
           ss.clear();
           ss << "FAILURE\n";
@@ -1455,6 +1430,9 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
         ss.clear();
         ss << "FAILURE\n";
       }
+    } else {
+      ss.clear();
+      ss << "FAILURE\n";
     }
   }
 
