@@ -192,7 +192,7 @@ const IndexMeta * TableMeta::find_index_by_list(std::vector<std::string> vector)
       if (index.field_num() == 0) {
           continue;
       }
-      if(index.field_num()!=vector.size()){
+      if(index.field_num()!=(int)vector.size()){
         continue;
       }
       if (0 == index.compare_multi_index(vector)) {
