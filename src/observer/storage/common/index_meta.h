@@ -48,8 +48,7 @@ public:
 private:
   std::string       name_;
   std::string       field_;
-  int field_num_;
-  std::string     field_list_[20];
+  std::vector<std::string> fields;
   int unique_;
 };
 #endif // __OBSERVER_STORAGE_COMMON_INDEX_META_H__
