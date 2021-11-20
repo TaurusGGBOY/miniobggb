@@ -209,6 +209,7 @@ enum RC {
   FORMAT,        /* Not used */
   RANGE,         /* 2nd parameter to bind out of range */
   NOTADB,        /* File opened that is not a database file */
+  INVALID_EXP,
   NOTICE = 100,  /* Notifications from log() */
   SUBQUERY,
 

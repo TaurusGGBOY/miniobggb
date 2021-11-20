@@ -73,7 +73,9 @@ public:
   TupleField(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag at) :
           type_(type), table_name_(table_name), field_name_(field_name),agg_type_(at){
   }
+  TupleField(const char* exp):exp(exp),type_(FLOATS) {
 
+  }
   AttrType  type() const{
     return type_;
   }
@@ -88,13 +90,17 @@ public:
   const char *field_name() const {
     return field_name_.c_str();
   }
-
+  const char *get_epx() const {
+    return exp;
+  }
   std::string to_string() const;
+  std::string to_string_without_type() const;
 private:
   AttrType  type_;
   std::string table_name_;
   std::string field_name_;
   enum AggregationTypeFlag agg_type_;
+  const char* exp= nullptr;
 };
 
 class TupleSchema {
@@ -104,6 +110,7 @@ public:
 
   void add(AttrType type, const char *table_name, const char *field_name);
   void add_agg_field(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag af);
+  void add(const char* exp);
   void add_if_not_exists(AttrType type, const char *table_name, const char *field_name);
   // void merge(const TupleSchema &other);
   void append(const TupleSchema &other);
@@ -124,7 +131,7 @@ public:
   int size() const{
     return fields_.size();
   }
-  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& order) const;
+  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& order, bool table_name=true) const;
   void print(std::ostream &os, bool table_name) const;
   void print_with_agg(std::ostream &os,bool table_name);
 public:
@@ -176,7 +183,7 @@ public:
   void set_schema(const TupleSchema &schema);
   void set_schema(const TupleSchema &&schema);
 
-  const TupleSchema &get_schema() const;
+  TupleSchema &get_schema();
 
   void add(Tuple && tuple);
 
@@ -184,10 +191,11 @@ public:
 
   bool is_empty() const;
   int size() const;
-  const Tuple &get(int index) const;
+  Tuple &get(int index);
   const std::vector<Tuple> &tuples() const;
-  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order) const;
+  void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order, bool table_name=true) const;
   void print(std::ostream &os, bool table_name=false) const;
+  int get_field_index(const char* table_name,const char* field_name);
 public:
   const TupleSchema &schema() const {
     return schema_;
