@@ -208,7 +208,7 @@ public:
   std::string get_key(const Tuple& row);
   RC set_by_field(Selects* select,bool is_multitable);
   RC aggregates();
-  void init_tuple(Tuple* init, const Tuple& ref);
+  RC init_tuple(Tuple* init, const Tuple& ref);
   RC to_value(Value* value);
   void print(std::ostream &os,bool table_name);
 private:

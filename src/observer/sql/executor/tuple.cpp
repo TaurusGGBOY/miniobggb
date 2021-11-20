@@ -890,9 +890,14 @@ void GroupTupleSet::print(std::ostream &os,bool table_name){
   }
 }
 
-void GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
+RC GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
   //用第一个tuple的值初始化聚合结果字段
+  //segment fault
   for(int i =0;i!=schema_.size();i++){
+    if(i>=order_.size())
+      return RC::ABORT;
+    if(order_[i].second>=ref.size())
+      return RC::ABORT;
     switch (schema_.field(i).type())
     {
     case FLOATS:
@@ -914,6 +919,7 @@ void GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
       break;
     }
   }
+  return RC::SUCCESS;
 }
 
 RC GroupTupleSet::aggregates(){
@@ -923,7 +929,9 @@ RC GroupTupleSet::aggregates(){
     if(!this->groups.count(key)){
       groups[key] = new Tuple;
       count[key] = 1;
-      init_tuple(groups[key],row);
+      RC rc = init_tuple(groups[key],row);
+      if(rc!= RC::SUCCESS)
+        return rc;
     }
     else{
       Tuple* target = groups[key]; 
