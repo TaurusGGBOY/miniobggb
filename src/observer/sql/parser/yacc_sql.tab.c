@@ -649,15 +649,15 @@ static const yytype_int16 yyrline[] =
      237,   245,   255,   256,   265,   272,   282,   289,   291,   295,
      306,   314,   322,   335,   338,   339,   340,   341,   342,   345,
      353,   370,   372,   377,   385,   390,   393,   396,   399,   406,
-     416,   426,   428,   436,   452,   471,   472,   477,   478,   484,
-     487,   490,   494,   496,   499,   502,   506,   507,   511,   516,
-     521,   526,   531,   536,   543,   544,   549,   554,   559,   564,
-     569,   577,   582,   587,   592,   597,   602,   611,   620,   631,
-     634,   637,   640,   647,   652,   659,   661,   668,   675,   680,
-     684,   686,   690,   692,   695,   697,   701,   702,   703,   704,
-     705,   706,   707,   708,   720,   733,   746,   759,   772,   788,
-     801,   814,   830,   840,   850,   863,   883,   903,   925,   946,
-     967,   990,   991,   992,   993,   994,   995,   996,   997,  1002
+     416,   426,   429,   437,   453,   472,   473,   478,   479,   485,
+     488,   491,   495,   497,   500,   503,   507,   508,   512,   517,
+     522,   527,   532,   537,   544,   545,   550,   555,   560,   565,
+     570,   578,   583,   588,   593,   598,   603,   612,   621,   632,
+     635,   638,   641,   648,   653,   660,   662,   669,   676,   681,
+     686,   688,   692,   694,   697,   699,   703,   704,   705,   706,
+     707,   708,   711,   714,   726,   739,   752,   765,   778,   794,
+     807,   820,   836,   846,   856,   869,   889,   909,   931,   952,
+     973,   996,   997,   998,   999,  1000,  1001,  1002,  1003,  1008
 };
 #endif
 
@@ -2027,23 +2027,24 @@ yyreduce:
   case 61:
 #line 426 "yacc_sql.y"
                             {
+		printf("1111\n");
 	}
-#line 2032 "yacc_sql.tab.c"
+#line 2033 "yacc_sql.tab.c"
     break;
 
   case 62:
-#line 429 "yacc_sql.y"
+#line 430 "yacc_sql.y"
                 {
 		//聚合运算的语法解析
 		CONTEXT->ssql->flag = SCF_AGGREGATE;
 		aggregates_init(&CONTEXT->ssql->sstr.aggregation,(yyvsp[-2].string),CONTEXT->conditions, CONTEXT->condition_length);
 		CONTEXT->condition_length = 0;
 	}
-#line 2043 "yacc_sql.tab.c"
+#line 2044 "yacc_sql.tab.c"
     break;
 
   case 63:
-#line 436 "yacc_sql.y"
+#line 437 "yacc_sql.y"
                                                                       {
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, (yyvsp[-4].string));
@@ -2059,11 +2060,11 @@ yyreduce:
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
 	}
-#line 2063 "yacc_sql.tab.c"
+#line 2064 "yacc_sql.tab.c"
     break;
 
   case 64:
-#line 453 "yacc_sql.y"
+#line 454 "yacc_sql.y"
                 {
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, (yyvsp[-4].string));
@@ -2080,271 +2081,271 @@ yyreduce:
 			CONTEXT->value_length = 0;
 			//printf("Sub select length is %d\n",CONTEXT->sub_selects_length);
 			}
-#line 2084 "yacc_sql.tab.c"
+#line 2085 "yacc_sql.tab.c"
     break;
 
   case 66:
-#line 472 "yacc_sql.y"
+#line 473 "yacc_sql.y"
                                        {
         selects_append_relation(&CONTEXT->ssql->sstr.selection, (yyvsp[-2].string));
     }
-#line 2092 "yacc_sql.tab.c"
+#line 2093 "yacc_sql.tab.c"
     break;
 
   case 68:
-#line 478 "yacc_sql.y"
+#line 479 "yacc_sql.y"
                                   {
 
     }
-#line 2100 "yacc_sql.tab.c"
+#line 2101 "yacc_sql.tab.c"
     break;
 
   case 69:
-#line 484 "yacc_sql.y"
+#line 485 "yacc_sql.y"
                                                   {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,(yyvsp[-2].string),(yyvsp[-4].string));
 	}
-#line 2108 "yacc_sql.tab.c"
+#line 2109 "yacc_sql.tab.c"
     break;
 
   case 70:
-#line 487 "yacc_sql.y"
+#line 488 "yacc_sql.y"
                                                       {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",(yyvsp[-4].string));
 	}
-#line 2116 "yacc_sql.tab.c"
+#line 2117 "yacc_sql.tab.c"
     break;
 
   case 71:
-#line 490 "yacc_sql.y"
+#line 491 "yacc_sql.y"
                                                         {
 		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,(yyvsp[-2].number),(yyvsp[-4].string));
 	}
-#line 2124 "yacc_sql.tab.c"
+#line 2125 "yacc_sql.tab.c"
     break;
 
   case 73:
-#line 496 "yacc_sql.y"
+#line 497 "yacc_sql.y"
                                                          {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,(yyvsp[-2].string),(yyvsp[-4].string));
 	}
-#line 2132 "yacc_sql.tab.c"
+#line 2133 "yacc_sql.tab.c"
     break;
 
   case 74:
-#line 499 "yacc_sql.y"
+#line 500 "yacc_sql.y"
                                                             {
 		aggregates_append_field(&CONTEXT->ssql->sstr.aggregation,NULL,"*",(yyvsp[-4].string));
 	}
-#line 2140 "yacc_sql.tab.c"
+#line 2141 "yacc_sql.tab.c"
     break;
 
   case 75:
-#line 502 "yacc_sql.y"
+#line 503 "yacc_sql.y"
                                                               {
 		aggregates_append_field_itoa(&CONTEXT->ssql->sstr.aggregation,(yyvsp[-2].number),(yyvsp[-4].string));
 	}
-#line 2148 "yacc_sql.tab.c"
+#line 2149 "yacc_sql.tab.c"
     break;
 
   case 77:
-#line 507 "yacc_sql.y"
+#line 508 "yacc_sql.y"
                           {
     }
-#line 2155 "yacc_sql.tab.c"
+#line 2156 "yacc_sql.tab.c"
     break;
 
   case 78:
-#line 511 "yacc_sql.y"
+#line 512 "yacc_sql.y"
                        {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-1].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2165 "yacc_sql.tab.c"
+#line 2166 "yacc_sql.tab.c"
     break;
 
   case 79:
-#line 516 "yacc_sql.y"
+#line 517 "yacc_sql.y"
                                  {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-3].string), (yyvsp[-1].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2175 "yacc_sql.tab.c"
+#line 2176 "yacc_sql.tab.c"
     break;
 
   case 80:
-#line 521 "yacc_sql.y"
+#line 522 "yacc_sql.y"
                               {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-2].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2185 "yacc_sql.tab.c"
+#line 2186 "yacc_sql.tab.c"
     break;
 
   case 81:
-#line 526 "yacc_sql.y"
+#line 527 "yacc_sql.y"
                                 {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-2].string), "desc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2195 "yacc_sql.tab.c"
+#line 2196 "yacc_sql.tab.c"
     break;
 
   case 82:
-#line 531 "yacc_sql.y"
+#line 532 "yacc_sql.y"
                                      {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-4].string), (yyvsp[-2].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2205 "yacc_sql.tab.c"
+#line 2206 "yacc_sql.tab.c"
     break;
 
   case 83:
-#line 536 "yacc_sql.y"
+#line 537 "yacc_sql.y"
                                       {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-4].string), (yyvsp[-2].string), "desc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2215 "yacc_sql.tab.c"
+#line 2216 "yacc_sql.tab.c"
     break;
 
   case 85:
-#line 544 "yacc_sql.y"
+#line 545 "yacc_sql.y"
                                {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-1].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2225 "yacc_sql.tab.c"
+#line 2226 "yacc_sql.tab.c"
     break;
 
   case 86:
-#line 549 "yacc_sql.y"
+#line 550 "yacc_sql.y"
                                       {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-3].string), (yyvsp[-1].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2235 "yacc_sql.tab.c"
+#line 2236 "yacc_sql.tab.c"
     break;
 
   case 87:
-#line 554 "yacc_sql.y"
+#line 555 "yacc_sql.y"
                                    {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-2].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2245 "yacc_sql.tab.c"
+#line 2246 "yacc_sql.tab.c"
     break;
 
   case 88:
-#line 559 "yacc_sql.y"
+#line 560 "yacc_sql.y"
                                     {
             OrderAttr attr;
             order_attr_init(&attr, NULL, (yyvsp[-2].string), "desc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2255 "yacc_sql.tab.c"
+#line 2256 "yacc_sql.tab.c"
     break;
 
   case 89:
-#line 564 "yacc_sql.y"
+#line 565 "yacc_sql.y"
                                           {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-4].string), (yyvsp[-2].string), "asc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2265 "yacc_sql.tab.c"
+#line 2266 "yacc_sql.tab.c"
     break;
 
   case 90:
-#line 569 "yacc_sql.y"
+#line 570 "yacc_sql.y"
                                            {
             OrderAttr attr;
             order_attr_init(&attr, (yyvsp[-4].string), (yyvsp[-2].string), "desc");
             selects_append_order_attr(&CONTEXT->ssql->sstr.selection, &attr);
         }
-#line 2275 "yacc_sql.tab.c"
+#line 2276 "yacc_sql.tab.c"
     break;
 
   case 91:
-#line 577 "yacc_sql.y"
+#line 578 "yacc_sql.y"
          {  
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, "*");
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
-#line 2285 "yacc_sql.tab.c"
+#line 2286 "yacc_sql.tab.c"
     break;
 
   case 92:
-#line 582 "yacc_sql.y"
+#line 583 "yacc_sql.y"
                    {
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, (yyvsp[-1].string));
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
-#line 2295 "yacc_sql.tab.c"
+#line 2296 "yacc_sql.tab.c"
     break;
 
   case 93:
-#line 587 "yacc_sql.y"
+#line 588 "yacc_sql.y"
                               {
 			RelAttr attr;
 			relation_attr_init(&attr, (yyvsp[-3].string), (yyvsp[-1].string));
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 		}
-#line 2305 "yacc_sql.tab.c"
+#line 2306 "yacc_sql.tab.c"
     break;
 
   case 94:
-#line 592 "yacc_sql.y"
+#line 593 "yacc_sql.y"
                                 {
 	        RelAttr attr;
 	        relation_attr_init(&attr, (yyvsp[-3].string), "*");
 	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	    }
-#line 2315 "yacc_sql.tab.c"
+#line 2316 "yacc_sql.tab.c"
     break;
 
   case 95:
-#line 597 "yacc_sql.y"
+#line 598 "yacc_sql.y"
                               {
 
 	}
-#line 2323 "yacc_sql.tab.c"
+#line 2324 "yacc_sql.tab.c"
     break;
 
   case 96:
-#line 603 "yacc_sql.y"
+#line 604 "yacc_sql.y"
         {
 		//将condition的值存入，入栈
 		CONTEXT->sub_selects_length++;
 		CONTEXT->sub_condition_length[CONTEXT->sub_selects_length] = CONTEXT->condition_length;
 	}
-#line 2333 "yacc_sql.tab.c"
+#line 2334 "yacc_sql.tab.c"
     break;
 
   case 97:
-#line 612 "yacc_sql.y"
+#line 613 "yacc_sql.y"
                 {
 		aggregates_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-1].string),
 					CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length], 
 					CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 		//printf("Condition start at %d\n",CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 	}
-#line 2344 "yacc_sql.tab.c"
+#line 2345 "yacc_sql.tab.c"
     break;
 
   case 98:
-#line 621 "yacc_sql.y"
+#line 622 "yacc_sql.y"
                 {	
 			//selects_init(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection);
 			selects_append_relation(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, (yyvsp[-1].string));
@@ -2352,63 +2353,63 @@ yyreduce:
 						CONTEXT->conditions + CONTEXT->sub_condition_length[CONTEXT->sub_selects_length],
 						CONTEXT->condition_length - CONTEXT->sub_condition_length[CONTEXT->sub_selects_length]);
 		}
-#line 2356 "yacc_sql.tab.c"
+#line 2357 "yacc_sql.tab.c"
     break;
 
   case 99:
-#line 631 "yacc_sql.y"
+#line 632 "yacc_sql.y"
                                    {
 		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,(yyvsp[-1].string),(yyvsp[-3].string));
 	}
-#line 2364 "yacc_sql.tab.c"
+#line 2365 "yacc_sql.tab.c"
     break;
 
   case 100:
-#line 634 "yacc_sql.y"
+#line 635 "yacc_sql.y"
                                            {
 		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-3].string),(yyvsp[-1].string),(yyvsp[-5].string));
 	}
-#line 2372 "yacc_sql.tab.c"
+#line 2373 "yacc_sql.tab.c"
     break;
 
   case 101:
-#line 637 "yacc_sql.y"
+#line 638 "yacc_sql.y"
                                        {
 		aggregates_append_field(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,NULL,"*",(yyvsp[-3].string));
 	}
-#line 2380 "yacc_sql.tab.c"
+#line 2381 "yacc_sql.tab.c"
     break;
 
   case 102:
-#line 640 "yacc_sql.y"
+#line 641 "yacc_sql.y"
                                          {
 		aggregates_append_field_itoa(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation,(yyvsp[-1].number),(yyvsp[-3].string));
 	}
-#line 2388 "yacc_sql.tab.c"
+#line 2389 "yacc_sql.tab.c"
     break;
 
   case 103:
-#line 647 "yacc_sql.y"
+#line 648 "yacc_sql.y"
        {
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, (yyvsp[0].string));
 			selects_append_attribute(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, &attr);
 		}
-#line 2398 "yacc_sql.tab.c"
+#line 2399 "yacc_sql.tab.c"
     break;
 
   case 104:
-#line 652 "yacc_sql.y"
+#line 653 "yacc_sql.y"
                     {
 			RelAttr attr;
 			relation_attr_init(&attr, (yyvsp[-2].string), (yyvsp[0].string));
 			selects_append_attribute(&CONTEXT->sub_selects[CONTEXT->sub_selects_length].selection, &attr);
 		}
-#line 2408 "yacc_sql.tab.c"
+#line 2409 "yacc_sql.tab.c"
     break;
 
   case 106:
-#line 661 "yacc_sql.y"
+#line 662 "yacc_sql.y"
                          {
 			RelAttr attr;
 			relation_attr_init(&attr, NULL, (yyvsp[-1].string));
@@ -2416,11 +2417,11 @@ yyreduce:
      	  // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].relation_name = NULL;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].attribute_name=$2;
       }
-#line 2420 "yacc_sql.tab.c"
+#line 2421 "yacc_sql.tab.c"
     break;
 
   case 107:
-#line 668 "yacc_sql.y"
+#line 669 "yacc_sql.y"
                                 {
 			RelAttr attr;
 			relation_attr_init(&attr, (yyvsp[-3].string), (yyvsp[-1].string));
@@ -2428,92 +2429,97 @@ yyreduce:
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
         // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
   	  }
-#line 2432 "yacc_sql.tab.c"
+#line 2433 "yacc_sql.tab.c"
     break;
 
   case 108:
-#line 675 "yacc_sql.y"
+#line 676 "yacc_sql.y"
                                       {
   	        RelAttr attr;
   	        relation_attr_init(&attr, (yyvsp[-3].string), "*");
   	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
   	}
-#line 2442 "yacc_sql.tab.c"
+#line 2443 "yacc_sql.tab.c"
     break;
 
   case 109:
-#line 680 "yacc_sql.y"
+#line 681 "yacc_sql.y"
                                     {
+		printf("33333\n");
 	}
-#line 2449 "yacc_sql.tab.c"
+#line 2451 "yacc_sql.tab.c"
     break;
 
   case 111:
-#line 686 "yacc_sql.y"
+#line 688 "yacc_sql.y"
                         {	
 		selects_append_relation(&CONTEXT->ssql->sstr.selection, (yyvsp[-1].string));
 	}
-#line 2457 "yacc_sql.tab.c"
+#line 2459 "yacc_sql.tab.c"
     break;
 
   case 113:
-#line 692 "yacc_sql.y"
+#line 694 "yacc_sql.y"
                                      {	
 	}
-#line 2464 "yacc_sql.tab.c"
+#line 2466 "yacc_sql.tab.c"
     break;
 
   case 115:
-#line 697 "yacc_sql.y"
+#line 699 "yacc_sql.y"
                                    {
 	}
-#line 2471 "yacc_sql.tab.c"
+#line 2473 "yacc_sql.tab.c"
     break;
 
   case 116:
-#line 701 "yacc_sql.y"
+#line 703 "yacc_sql.y"
                            {}
-#line 2477 "yacc_sql.tab.c"
+#line 2479 "yacc_sql.tab.c"
     break;
 
   case 117:
-#line 702 "yacc_sql.y"
+#line 704 "yacc_sql.y"
                             {}
-#line 2483 "yacc_sql.tab.c"
+#line 2485 "yacc_sql.tab.c"
     break;
 
   case 118:
-#line 703 "yacc_sql.y"
+#line 705 "yacc_sql.y"
                                    {}
-#line 2489 "yacc_sql.tab.c"
+#line 2491 "yacc_sql.tab.c"
     break;
 
   case 119:
-#line 704 "yacc_sql.y"
+#line 706 "yacc_sql.y"
                                    {}
-#line 2495 "yacc_sql.tab.c"
+#line 2497 "yacc_sql.tab.c"
     break;
 
   case 120:
-#line 705 "yacc_sql.y"
+#line 707 "yacc_sql.y"
                                {}
-#line 2501 "yacc_sql.tab.c"
+#line 2503 "yacc_sql.tab.c"
     break;
 
   case 121:
-#line 706 "yacc_sql.y"
-                               {}
-#line 2507 "yacc_sql.tab.c"
+#line 708 "yacc_sql.y"
+                               {
+		printf("22222\n");
+	}
+#line 2511 "yacc_sql.tab.c"
     break;
 
   case 122:
-#line 707 "yacc_sql.y"
-                                    {}
-#line 2513 "yacc_sql.tab.c"
+#line 711 "yacc_sql.y"
+                                    {
+		printf("4444\n");
+	}
+#line 2519 "yacc_sql.tab.c"
     break;
 
   case 123:
-#line 709 "yacc_sql.y"
+#line 715 "yacc_sql.y"
                 {	
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, NULL, (yyvsp[-2].string));
@@ -2525,11 +2531,11 @@ yyreduce:
 			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 			
 		}
-#line 2529 "yacc_sql.tab.c"
+#line 2535 "yacc_sql.tab.c"
     break;
 
   case 124:
-#line 720 "yacc_sql.y"
+#line 726 "yacc_sql.y"
                                                        {
 		//in subselect
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
@@ -2543,11 +2549,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2547 "yacc_sql.tab.c"
+#line 2553 "yacc_sql.tab.c"
     break;
 
   case 125:
-#line 733 "yacc_sql.y"
+#line 739 "yacc_sql.y"
                                                           {
 		//in subselect
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
@@ -2561,11 +2567,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2565 "yacc_sql.tab.c"
+#line 2571 "yacc_sql.tab.c"
     break;
 
   case 126:
-#line 746 "yacc_sql.y"
+#line 752 "yacc_sql.y"
                                                               {
 		//in subselect
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
@@ -2579,11 +2585,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2583 "yacc_sql.tab.c"
+#line 2589 "yacc_sql.tab.c"
     break;
 
   case 127:
-#line 759 "yacc_sql.y"
+#line 765 "yacc_sql.y"
                                                                  {
 		//in subselect
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
@@ -2597,11 +2603,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2601 "yacc_sql.tab.c"
+#line 2607 "yacc_sql.tab.c"
     break;
 
   case 128:
-#line 773 "yacc_sql.y"
+#line 779 "yacc_sql.y"
         {
 		//出栈
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
@@ -2617,11 +2623,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2621 "yacc_sql.tab.c"
+#line 2627 "yacc_sql.tab.c"
     break;
 
   case 129:
-#line 789 "yacc_sql.y"
+#line 795 "yacc_sql.y"
         {
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr right_attr;
@@ -2634,11 +2640,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2638 "yacc_sql.tab.c"
+#line 2644 "yacc_sql.tab.c"
     break;
 
   case 130:
-#line 802 "yacc_sql.y"
+#line 808 "yacc_sql.y"
         {
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr left_attr;
@@ -2651,11 +2657,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2655 "yacc_sql.tab.c"
+#line 2661 "yacc_sql.tab.c"
     break;
 
   case 131:
-#line 815 "yacc_sql.y"
+#line 821 "yacc_sql.y"
         {
 		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
 		CONTEXT->sub_selects_length--;
@@ -2671,11 +2677,11 @@ yyreduce:
 		query_stack_pop(&CONTEXT->sub_selects[CONTEXT->sub_selects_length+1],0);
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2675 "yacc_sql.tab.c"
+#line 2681 "yacc_sql.tab.c"
     break;
 
   case 132:
-#line 830 "yacc_sql.y"
+#line 836 "yacc_sql.y"
                                                      {
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		Aggregates* left_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
@@ -2686,11 +2692,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2690 "yacc_sql.tab.c"
+#line 2696 "yacc_sql.tab.c"
     break;
 
   case 133:
-#line 840 "yacc_sql.y"
+#line 846 "yacc_sql.y"
                                                      {
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		Aggregates* right_agg_value = &CONTEXT->sub_selects[CONTEXT->sub_selects_length].aggregation;
@@ -2701,11 +2707,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2705 "yacc_sql.tab.c"
+#line 2711 "yacc_sql.tab.c"
     break;
 
   case 134:
-#line 851 "yacc_sql.y"
+#line 857 "yacc_sql.y"
         {
 		CONTEXT->condition_length = CONTEXT->sub_condition_length[CONTEXT->sub_selects_length];
 		RelAttr right_attr;
@@ -2718,11 +2724,11 @@ yyreduce:
 		CONTEXT->sub_selects_length--;
 		CONTEXT->conditions[CONTEXT->condition_length++] = condition;
 	}
-#line 2722 "yacc_sql.tab.c"
+#line 2728 "yacc_sql.tab.c"
     break;
 
   case 135:
-#line 864 "yacc_sql.y"
+#line 870 "yacc_sql.y"
         {
 		Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
 		Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
@@ -2742,11 +2748,11 @@ yyreduce:
 		// $$->right_value = *$3;
 
 	}
-#line 2746 "yacc_sql.tab.c"
+#line 2752 "yacc_sql.tab.c"
     break;
 
   case 136:
-#line 884 "yacc_sql.y"
+#line 890 "yacc_sql.y"
         {
 		RelAttr left_attr;
 		relation_attr_init(&left_attr, NULL, (yyvsp[-2].string));
@@ -2766,11 +2772,11 @@ yyreduce:
 		// $$->right_attr.attribute_name=$3;
 
 	}
-#line 2770 "yacc_sql.tab.c"
+#line 2776 "yacc_sql.tab.c"
     break;
 
   case 137:
-#line 904 "yacc_sql.y"
+#line 910 "yacc_sql.y"
                 {
 			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
 			RelAttr right_attr;
@@ -2792,11 +2798,11 @@ yyreduce:
 			// $$->right_attr.attribute_name=$3;
 		
 		}
-#line 2796 "yacc_sql.tab.c"
+#line 2802 "yacc_sql.tab.c"
     break;
 
   case 138:
-#line 926 "yacc_sql.y"
+#line 932 "yacc_sql.y"
                 {
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, (yyvsp[-4].string), (yyvsp[-2].string));
@@ -2817,11 +2823,11 @@ yyreduce:
 			// $$->right_value =*$5;			
 							
     }
-#line 2821 "yacc_sql.tab.c"
+#line 2827 "yacc_sql.tab.c"
     break;
 
   case 139:
-#line 947 "yacc_sql.y"
+#line 953 "yacc_sql.y"
                 {
 			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
 
@@ -2842,11 +2848,11 @@ yyreduce:
 			// $$->right_attr.attribute_name = $5;
 									
     }
-#line 2846 "yacc_sql.tab.c"
+#line 2852 "yacc_sql.tab.c"
     break;
 
   case 140:
-#line 968 "yacc_sql.y"
+#line 974 "yacc_sql.y"
                 {
 			RelAttr left_attr;
 			relation_attr_init(&left_attr, (yyvsp[-6].string), (yyvsp[-4].string));
@@ -2865,68 +2871,68 @@ yyreduce:
 			// $$->right_attr.relation_name=$5;
 			// $$->right_attr.attribute_name=$7;
     }
-#line 2869 "yacc_sql.tab.c"
-    break;
-
-  case 141:
-#line 990 "yacc_sql.y"
-             { CONTEXT->comp[CONTEXT->comp_length++] = EQUAL_TO; }
 #line 2875 "yacc_sql.tab.c"
     break;
 
-  case 142:
-#line 991 "yacc_sql.y"
-         { CONTEXT->comp[CONTEXT->comp_length++] = LESS_THAN; }
+  case 141:
+#line 996 "yacc_sql.y"
+             { CONTEXT->comp[CONTEXT->comp_length++] = EQUAL_TO; }
 #line 2881 "yacc_sql.tab.c"
     break;
 
-  case 143:
-#line 992 "yacc_sql.y"
-         { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_THAN; }
+  case 142:
+#line 997 "yacc_sql.y"
+         { CONTEXT->comp[CONTEXT->comp_length++] = LESS_THAN; }
 #line 2887 "yacc_sql.tab.c"
     break;
 
-  case 144:
-#line 993 "yacc_sql.y"
-         { CONTEXT->comp[CONTEXT->comp_length++] = LESS_EQUAL; }
+  case 143:
+#line 998 "yacc_sql.y"
+         { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_THAN; }
 #line 2893 "yacc_sql.tab.c"
     break;
 
-  case 145:
-#line 994 "yacc_sql.y"
-         { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_EQUAL; }
+  case 144:
+#line 999 "yacc_sql.y"
+         { CONTEXT->comp[CONTEXT->comp_length++] = LESS_EQUAL; }
 #line 2899 "yacc_sql.tab.c"
     break;
 
-  case 146:
-#line 995 "yacc_sql.y"
-         { CONTEXT->comp[CONTEXT->comp_length++] = NOT_EQUAL; }
+  case 145:
+#line 1000 "yacc_sql.y"
+         { CONTEXT->comp[CONTEXT->comp_length++] = GREAT_EQUAL; }
 #line 2905 "yacc_sql.tab.c"
     break;
 
-  case 147:
-#line 996 "yacc_sql.y"
-                 { CONTEXT->comp[CONTEXT->comp_length++] = IS_NULL; }
+  case 146:
+#line 1001 "yacc_sql.y"
+         { CONTEXT->comp[CONTEXT->comp_length++] = NOT_EQUAL; }
 #line 2911 "yacc_sql.tab.c"
     break;
 
-  case 148:
-#line 997 "yacc_sql.y"
-                    { CONTEXT->comp[CONTEXT->comp_length++] = IS_NOT_NULL; }
+  case 147:
+#line 1002 "yacc_sql.y"
+                 { CONTEXT->comp[CONTEXT->comp_length++] = IS_NULL; }
 #line 2917 "yacc_sql.tab.c"
     break;
 
-  case 149:
+  case 148:
 #line 1003 "yacc_sql.y"
+                    { CONTEXT->comp[CONTEXT->comp_length++] = IS_NOT_NULL; }
+#line 2923 "yacc_sql.tab.c"
+    break;
+
+  case 149:
+#line 1009 "yacc_sql.y"
                 {
 		  CONTEXT->ssql->flag = SCF_LOAD_DATA;
 			load_data_init(&CONTEXT->ssql->sstr.load_data, (yyvsp[-1].string), (yyvsp[-4].string));
 		}
-#line 2926 "yacc_sql.tab.c"
+#line 2932 "yacc_sql.tab.c"
     break;
 
 
-#line 2930 "yacc_sql.tab.c"
+#line 2936 "yacc_sql.tab.c"
 
       default: break;
     }
@@ -3158,7 +3164,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 1008 "yacc_sql.y"
+#line 1014 "yacc_sql.y"
 
 //_____________________________________________________________________
 extern void scan_string(const char *str, yyscan_t scanner);
