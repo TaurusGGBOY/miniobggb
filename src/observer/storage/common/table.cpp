@@ -1313,12 +1313,13 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
   std::vector<std::string> filter_attr_list;
   std::vector<std::string> value_list;
   std::vector<CompOp> comop_list;
+  // important reverse at first
   if (composite_condition_filter != nullptr) {
     int filter_num = composite_condition_filter->filter_num();
     for (int i = 0; i < filter_num; i++) {
       const DefaultConditionFilter *temp =
           dynamic_cast<const DefaultConditionFilter *>(
-              &composite_condition_filter->filter(i));
+              &composite_condition_filter->filter(filter_num-1-i));
       comop_list.push_back(temp->comp_op());
 
       if (temp->left().is_attr) {
