@@ -1356,6 +1356,10 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
 
       TupleSchema res_schema;
       TupleSet exp_set;
+      std::stringstream log_s;
+      res_set.back().get_schema().print(log_s,true);
+      LOG_DEBUG("schema is %s",log_s.str().data());
+      log_s.clear();
       if(expression_condition(res_set.back(),selects.condition_num,selects.conditions, true,exp_set)!=RC::SUCCESS) {
         ss.clear();
         ss << "FAILURE\n";
@@ -1378,7 +1382,7 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       }
       
       if(selects.group_attr_num!=0){
-        GroupTupleSet group_set(&res_set.back(),_select,print_order);
+        GroupTupleSet group_set(&exp_sets.back(),_select,print_order);
         rc = group_set.set_by_field(_select,true);
         if(rc!=RC::SUCCESS){
           ss << "FAILURE\n";
@@ -1569,6 +1573,11 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
     LOG_WARN("No such table [%s] in db [%s]", table_name, db);
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
+
+  //合代码出问题了，下推所有字段
+  TupleSchema::from_table(table, schema);
+
+
   LOG_DEBUG("add %s table schema",table->name());
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
