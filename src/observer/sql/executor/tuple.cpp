@@ -919,6 +919,8 @@ RC GroupTupleSet::init_tuple(Tuple* init,const Tuple& ref){
       break;
     }
   }
+  if(is_multi)
+    return RC::ABORT;
   return RC::SUCCESS;
 }
 
