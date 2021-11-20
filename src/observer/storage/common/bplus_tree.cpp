@@ -2188,6 +2188,7 @@ RC BplusTreeHandler::insert_entry_multi_index(const char *record, const RID *rid
 
   char* pkey = (char*)malloc(sizeof(char)*file_header_.attr_length);
   // TODO change record->pkey
+  // change to human order
   int offset = 0;
   for(int i = 0; i< lens.size();i++){
     memcpy(pkey+offset, record+offsets[i], lens[i]);
