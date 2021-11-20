@@ -309,7 +309,8 @@ extern "C" {
 
 void order_attr_init(OrderAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* is_asc);
 void order_attr_destroy(OrderAttr *relation_attr);
-void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
+void relation_attr_init_without_type(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
+void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* type_name);
 void relation_exp_attr_init(RelAttr *relation_attr, const char *exp);
 void relation_attr_destroy(RelAttr *relation_attr);
 

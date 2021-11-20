@@ -51,6 +51,17 @@ void order_attr_destroy(OrderAttr *relation_attr) {
   relation_attr->is_asc = nullptr;
 }
 
+void relation_attr_init_without_type(RelAttr *relation_attr, const char *relation_name, const char *attribute_name) {
+  relation_attr->agg_type = ATF_NULL;
+  if (relation_name != nullptr) {
+    relation_attr->relation_name = strdup(relation_name);
+  } else {
+    relation_attr->relation_name = nullptr;
+  }
+  relation_attr->attribute_name = strdup(attribute_name);
+  relation_attr->exp= nullptr;
+}
+
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name,
      const char* type_name) {
   if(type_name==nullptr)

@@ -607,6 +607,7 @@ select_attr:
 			RelAttr attr;
 			relation_attr_init(&attr, $3,$5, $1);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
 	| EXPRESSION attr_list{
 	        RelAttr attr;
 	        relation_exp_attr_init(&attr, $1);
@@ -702,6 +703,7 @@ attr_list:
 			RelAttr attr;
 			relation_attr_init(&attr, $4,$6, $2);
 			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+	}
 	| COMMA EXPRESSION attr_list{
 		printf("33333\n");
 	        RelAttr attr;
@@ -755,7 +757,7 @@ condition_list:
 condition:
 	ID comOp EXPRESSION{
 		RelAttr left_attr;
-		relation_attr_init(&left_attr, NULL, $1);
+		relation_attr_init_without_type(&left_attr, NULL, $1);
 		RelAttr right_attr;
 		relation_exp_attr_init(&right_attr,$3);
 
@@ -767,7 +769,7 @@ condition:
 		RelAttr left_attr;
 		relation_exp_attr_init(&left_attr,$1);
 		RelAttr right_attr;
-		relation_attr_init(&right_attr, NULL, $3);
+		relation_attr_init_without_type(&right_attr, NULL, $3);
 
 		Condition condition;
 		condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);
@@ -775,7 +777,7 @@ condition:
 	}
 	|ID DOT ID comOp EXPRESSION{
 		RelAttr left_attr;
-		relation_attr_init(&left_attr, $1, $3);
+		relation_attr_init_without_type(&left_attr, $1, $3);
 		RelAttr right_attr;
 		relation_exp_attr_init(&right_attr,$5);
 
@@ -787,7 +789,7 @@ condition:
 			RelAttr left_attr;
 		    relation_exp_attr_init(&left_attr,$1);
 			RelAttr right_attr;
-			relation_attr_init(&right_attr, $3, $5);
+			relation_attr_init_without_type(&right_attr, $3, $5);
 
 			Condition condition;
 			condition_init(&condition, CONTEXT->comp[--CONTEXT->comp_length], 1, &left_attr, NULL, 1, &right_attr, NULL,NULL,NULL);

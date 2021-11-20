@@ -105,6 +105,10 @@ void TupleSchema::add(const char *exp) {
   fields_.emplace_back(exp);
 }
 
+void TupleSchema::add_agg_field(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag af){
+  fields_.emplace_back(type, table_name, field_name,af);
+}
+
 void TupleSchema::add_if_not_exists(AttrType type, const char *table_name, const char *field_name) {
   for (const auto &field: fields_) {
     if (0 == strcmp(field.table_name(), table_name) &&
