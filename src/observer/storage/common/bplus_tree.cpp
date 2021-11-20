@@ -2201,16 +2201,19 @@ RC BplusTreeHandler::insert_entry_multi_index(const char *record, const RID *rid
   rc= find_leaf_multi_index(key, &leaf_page, offsets, types, lens);
   if(rc!=SUCCESS){
     free(key);
+    free(pkey);
     return rc;
   }
   rc = disk_buffer_pool_->get_this_page(file_id_, leaf_page, &page_handle);
   if(rc!=SUCCESS){
     free(key);
+    free(pkey);
     return rc;
   }
   rc = disk_buffer_pool_->get_data(&page_handle, &pdata);
   if(rc!=SUCCESS){
     free(key);
+    free(pkey);
     return rc;
   }
   leaf=(IndexNode *)(pdata+sizeof(IndexFileHeader));
@@ -2219,20 +2222,24 @@ RC BplusTreeHandler::insert_entry_multi_index(const char *record, const RID *rid
     rc = disk_buffer_pool_->unpin_page(&page_handle);
     if(rc!=SUCCESS){
       free(key);
+      free(pkey);
       return rc;
     }
     rc=insert_into_leaf_multi_index(leaf_page,key,rid);
     if(rc!=SUCCESS){
       free(key);
+      free(pkey);
       return rc;
     }
     free(key);
+    free(pkey);
     return SUCCESS;
   }
   else{
     rc = disk_buffer_pool_->unpin_page(&page_handle);
     if(rc!=SUCCESS){
       free(key);
+      free(pkey);
       return rc;
     }
 

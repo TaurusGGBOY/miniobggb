@@ -812,6 +812,9 @@ RC Table::create_index_by_list(Trx *trx, const char *index_name,
     name_vec.push_back(it.attribute_name);
   }
 
+  // important to reverse here
+  std::reverse(name_vec.begin(), name_vec.end());
+
   if (index_name == nullptr || common::is_blank(index_name)) {
     return RC::INVALID_ARGUMENT;
   }
@@ -1214,13 +1217,13 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid,
   Bitmap &bitmap = Bitmap::get_instance();
   int bitmap_offset = null_offset();
   for (Index *index : indexes_) {
-    int ind = table_meta_.field_index(index->index_meta().field());
-    if (bitmap.get_null_at_index(record + bitmap_offset, ind - 2) == 1) {
-      continue;
-    }
-    if (index->index_meta().field_num() > 1) {
+    if (index->index_meta().field_num() >= 1) {
       rc = index->delete_entry_multi_index(record, &rid);
     } else {
+      int ind = table_meta_.field_index(index->index_meta().field());
+      if (bitmap.get_null_at_index(record + bitmap_offset, ind - 2) == 1) {
+        continue;
+      }
       rc = index->delete_entry(record, &rid);
     }
     if (rc != RC::SUCCESS) {
@@ -1319,7 +1322,7 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
     for (int i = 0; i < filter_num; i++) {
       const DefaultConditionFilter *temp =
           dynamic_cast<const DefaultConditionFilter *>(
-              &composite_condition_filter->filter(filter_num-1-i));
+              &composite_condition_filter->filter(filter_num - 1 - i));
       comop_list.push_back(temp->comp_op());
 
       if (temp->left().is_attr) {
