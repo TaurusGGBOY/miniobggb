@@ -101,12 +101,12 @@ void TupleSchema::add(AttrType type, const char *table_name, const char *field_n
   fields_.emplace_back(type, table_name, field_name,ATF_NULL);
 }
 
-void TupleSchema::add(const char *exp) {
-  fields_.emplace_back(exp);
-}
-
 void TupleSchema::add_agg_field(AttrType type, const char *table_name, const char *field_name,AggregationTypeFlag af){
   fields_.emplace_back(type, table_name, field_name,af);
+}
+
+void TupleSchema::add(const char *exp) {
+  fields_.emplace_back(exp);
 }
 
 void TupleSchema::add_if_not_exists(AttrType type, const char *table_name, const char *field_name) {
