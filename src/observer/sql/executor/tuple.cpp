@@ -101,6 +101,10 @@ void TupleSchema::add(AttrType type, const char *table_name, const char *field_n
   fields_.emplace_back(type, table_name, field_name);
 }
 
+void TupleSchema::add(const char *exp) {
+  fields_.emplace_back(exp);
+}
+
 void TupleSchema::add_if_not_exists(AttrType type, const char *table_name, const char *field_name) {
   for (const auto &field: fields_) {
     if (0 == strcmp(field.table_name(), table_name) &&
@@ -129,14 +133,22 @@ int TupleSchema::index_of_field(const char *table_name, const char *field_name) 
   }
   return -1;
 }
-void TupleSchema::print_by_order(std::ostream &os, std::vector<std::pair<int, int>> &order) const {
+void TupleSchema::print_by_order(std::ostream &os, std::vector<std::pair<int, int>> &order, bool table_name) const {
   if (fields_.empty()) {
     os << "No schema";
     return;
   }
   for(int i=0;i<order.size();++i) {
     auto f=fields_[order[i].second];
-    os << f.table_name() << "." << f.field_name();
+    if(f.get_epx()== nullptr) {
+      if(table_name) {
+        os << f.table_name() << "." << f.field_name();
+      } else {
+        os << f.field_name();
+      }
+    } else {
+      os << f.get_epx();
+    }
     if(i==order.size()-1) {
       os << std::endl;
     } else {
@@ -161,16 +173,23 @@ void TupleSchema::print(std::ostream &os,bool table_name) const {
     if(strcmp("null_field", iter->field_name())== 0){
       continue;
     }
-    if (table_name) {
-      os << iter->table_name() << ".";
+    if(iter->get_epx()== nullptr){
+      if (table_name) {
+        os << iter->table_name() << ".";
+      }
+      os << iter->field_name() << " | ";
+    } else {
+      os << iter->get_epx()<<" | ";
     }
-    os << iter->field_name() << " | ";
   }
-
-  if (table_name) {
-    os << fields_.back().table_name() << ".";
+  if(fields_.back().get_epx()== nullptr) {
+    if (table_name) {
+      os << fields_.back().table_name() << ".";
+    }
+    os << fields_.back().field_name() << std::endl;
+  } else {
+    os<<fields_.back().get_epx()<<std::endl;
   }
-  os << fields_.back().field_name() << std::endl;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -201,12 +220,12 @@ void TupleSet::clear() {
   schema_.clear();
 }
 
-void TupleSet::print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order) const {
+void TupleSet::print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order, bool table_name) const {
   if (schema_.fields().empty()) {
     LOG_WARN("Got empty schema");
     return;
   }
-  schema_.print_by_order(os,print_order);
+  schema_.print_by_order(os,print_order, table_name);
   for (const Tuple &item : tuples_) {
     const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
     for(int i=0;i< print_order.size();++i) {
@@ -239,7 +258,7 @@ void TupleSet::print(std::ostream &os, bool table_name) const {
   }
 
   schema_.print(os,table_name);
-
+  LOG_DEBUG("start print tuples");
   for (const Tuple &item : tuples_) {
     const std::vector<std::shared_ptr<TupleValue>> &values = item.values();
     for (std::vector<std::shared_ptr<TupleValue>>::const_iterator iter = values.begin(), end = --values.end();
@@ -261,7 +280,7 @@ void TupleSet::set_schema(const TupleSchema &&schema) {
   schema_ = schema;
 }
 
-const TupleSchema &TupleSet::get_schema() const {
+TupleSchema &TupleSet::get_schema() {
   return schema_;
 }
 
@@ -273,7 +292,7 @@ int TupleSet::size() const {
   return tuples_.size();
 }
 
-const Tuple &TupleSet::get(int index) const {
+Tuple &TupleSet::get(int index) {
   return tuples_[index];
 }
 

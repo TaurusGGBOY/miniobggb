@@ -65,6 +65,8 @@ void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const
 void relation_exp_attr_init(RelAttr *relation_attr, const char *exp) {
   relation_attr->agg_type = ATF_NULL;
   relation_attr->exp= strdup(exp);
+  relation_attr->relation_name= nullptr;
+  relation_attr->attribute_name= nullptr;
   LOG_DEBUG("condition is exp:%s",exp);
 }
 

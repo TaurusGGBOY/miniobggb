@@ -596,7 +596,10 @@ select_attr:
 	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	    }
 	| EXPRESSION attr_list{
-
+	        RelAttr attr;
+	        relation_exp_attr_init(&attr, $1);
+	        printf("field is exp");
+	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
     ;
 subselect_start:
@@ -680,6 +683,10 @@ attr_list:
   	}
 	| COMMA EXPRESSION attr_list{
 		printf("33333\n");
+	        RelAttr attr;
+	        relation_exp_attr_init(&attr, $2);
+	        printf("field is exp");
+	        selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
 	}
   	;
 
