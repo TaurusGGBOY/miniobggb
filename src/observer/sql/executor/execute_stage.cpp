@@ -39,6 +39,8 @@ See the Mulan PSL v2 for more details. */
 
 using namespace common;
 
+
+
 RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
 
 //! Constructor
@@ -367,51 +369,153 @@ void print_tuple_sets(std::vector<TupleSet>& tuple_sets, int index, std::vector<
     tuples.pop_back();
   }
 }
+std::vector<std::pair<int,int>> get_print_order_single(const Selects &selects, std::vector<TupleSet>& tuple_sets, TupleSchema& schema) {
+  std::vector<std::pair<int,int>> print_order;
+  //只有一个查询字段才可能出现全局星号
+  LOG_DEBUG("llds selects attr num is %d", selects.attr_num);
+  if(selects.attr_num == 1) {
+    //如果只有一个字段，该查询字段如果未设定表，则必须是*，不然就是非法查询
+    if(selects.attributes[0].exp== nullptr) {
+      LOG_DEBUG("llds selects relation_name is %s.%s", selects.attributes[0].relation_name,selects.attributes[0].attribute_name);
+      if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") == 0 ) {
+        for (int j=tuple_sets.size()-1; j>=0; --j) {
+          for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k) {
+            print_order.push_back({j,k});
+            schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+          }
+        }
+        LOG_DEBUG("llds print_order size is %d",print_order.size());
+        return print_order;
+      }
+    } else {
+      //do nothing ,continue;
+      LOG_DEBUG("select field is exp, continue");
+    }
+  }
 
+  for(int i=selects.attr_num-1;i>=0;--i) {
+    //如果不是表达式，走原来的逻辑
+    if(selects.attributes[i].exp== nullptr) {
+      for(int j=0;j<tuple_sets.size();++j){
+        for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
+          //如果tuple field是个表达式，跳过
+          //单表，有无表名无所谓
+          if(tuple_sets[j].get_schema().field(k).get_epx()== nullptr) {
+            if(selects.attributes[i].relation_name != nullptr && strcmp(selects.attributes[i].relation_name,tuple_sets[j].get_schema().field(k).table_name()) != 0 ) {
+              print_order.clear();
+              return print_order;
+            }
+            //如果表名不同，错误
+
+            //如果字段名不为*或者字段名不相等，继续找
+            if((strcmp("*", selects.attributes[i].attribute_name) != 0) && (strcmp(selects.attributes[i].attribute_name,tuple_sets[j].get_schema().field(k).field_name()) != 0)) {
+              continue;
+            }
+            print_order.push_back({j,k});
+            schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+          } else {
+            continue;
+          }
+        }
+      }
+    } else {
+      //如果是表达式
+      LOG_DEBUG("field:%s is exp",selects.attributes[i].exp);
+      for(int j=0;j<tuple_sets.size();++j){
+        for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
+          //如果tuple field是个表达式，继续
+
+          if(tuple_sets[j].get_schema().field(k).get_epx()!= nullptr) {
+            if(strcmp(tuple_sets[j].get_schema().field(k).get_epx(),selects.attributes[i].exp)==0) {
+              print_order.push_back({j,k});
+              schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+            }
+          } else {
+            continue;
+          }
+        }
+      }
+    }
+  }
+  LOG_DEBUG("get print order end");
+  return print_order;
+
+}
 std::vector<std::pair<int,int>> get_print_order(const Selects &selects, std::vector<TupleSet>& tuple_sets, TupleSchema& schema) {
   std::vector<std::pair<int,int>> print_order;
   //只有一个查询字段才可能出现全局星号
   LOG_DEBUG("llds selects attr num is %d", selects.attr_num);
   if(selects.attr_num == 1) {
     //如果只有一个字段，该查询字段如果未设定表，则必须是*，不然就是非法查询
-    LOG_DEBUG("llds selects relation_name is %s.%s", selects.attributes[0].relation_name,selects.attributes[0].attribute_name);
-    if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") == 0 ) {
-      for (int j=tuple_sets.size()-1; j>=0; --j) {
-        for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k) {
-          print_order.push_back({j,k});
-          schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+    if(selects.attributes[0].exp== nullptr) {
+      LOG_DEBUG("llds selects relation_name is %s.%s", selects.attributes[0].relation_name,selects.attributes[0].attribute_name);
+      if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") == 0 ) {
+        for (int j=tuple_sets.size()-1; j>=0; --j) {
+          for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k) {
+            print_order.push_back({j,k});
+            schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+          }
         }
+        LOG_DEBUG("llds print_order size is %d",print_order.size());
+        return print_order;
+      } else if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") != 0) {
+        //do nothing, error
+        LOG_DEBUG("llds print_order size is %d",print_order.size());
+        return print_order;
       }
-      LOG_DEBUG("llds print_order size is %d",print_order.size());
-      return print_order;
-    } else if(selects.attributes[0].relation_name == nullptr && strcmp(selects.attributes[0].attribute_name,"*") != 0) {
-      //do nothing, error
-      LOG_DEBUG("llds print_order size is %d",print_order.size());
-      return print_order;
+    } else {
+      //do nothing ,continue;
+      LOG_DEBUG("select field is exp, continue");
     }
   }
 
   for(int i=selects.attr_num-1;i>=0;--i) {
-    for(int j=0;j<tuple_sets.size();++j){
-      for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
-        //不能再出现全局*，所以不会出现无表名的情况
-        if(selects.attributes[i].relation_name == nullptr) {
-          print_order.clear();
-          return print_order;
+    //如果不是表达式，走原来的逻辑
+    if(selects.attributes[i].exp== nullptr) {
+      for(int j=0;j<tuple_sets.size();++j){
+          for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
+            //如果tuple field是个表达式，跳过
+            //不能再出现全局*，所以不会出现无表名的情况
+            if(tuple_sets[j].get_schema().field(k).get_epx()== nullptr) {
+              if(selects.attributes[i].relation_name == nullptr) {
+                print_order.clear();
+                return print_order;
+              }
+              //如果表名不同，继续找
+              if(strcmp(selects.attributes[i].relation_name,tuple_sets[j].get_schema().field(k).table_name()) != 0 ) {
+                continue;
+              }
+              //如果字段名不为*或者字段名不相等，继续找
+              if((strcmp("*", selects.attributes[i].attribute_name) != 0) && (strcmp(selects.attributes[i].attribute_name,tuple_sets[j].get_schema().field(k).field_name()) != 0)) {
+                continue;
+              }
+              print_order.push_back({j,k});
+              schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+            } else {
+              continue;
+            }
+          }
+      }
+    } else {
+      //如果是表达式
+      LOG_DEBUG("field:%s is exp",selects.attributes[i].exp);
+      for(int j=0;j<tuple_sets.size();++j){
+        for (int k=0;k<tuple_sets[j].get_schema().fields().size();++k){
+          //如果tuple field是个表达式，继续
+          //不能再出现全局*，所以不会出现无表名的情况
+          if(tuple_sets[j].get_schema().field(k).get_epx()!= nullptr) {
+            if(strcmp(tuple_sets[j].get_schema().field(k).get_epx(),selects.attributes[i].exp)==0) {
+              print_order.push_back({j,k});
+              schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
+            }
+          } else {
+            continue;
+          }
         }
-        //如果表名不同，继续找
-        if(strcmp(selects.attributes[i].relation_name,tuple_sets[j].get_schema().field(k).table_name()) != 0 ) {
-          continue;
-        }
-        //如果字段名不为*或者字段名不相等，继续找
-        if((strcmp("*", selects.attributes[i].attribute_name) != 0) && (strcmp(selects.attributes[i].attribute_name,tuple_sets[j].get_schema().field(k).field_name()) != 0)) {
-          continue;
-        }
-        print_order.push_back({j,k});
-        schema.add(tuple_sets[j].get_schema().field(k).type(),tuple_sets[j].get_schema().field(k).table_name(),tuple_sets[j].get_schema().field(k).field_name());
       }
     }
   }
+  LOG_DEBUG("get print order end");
   return print_order;
 }
 bool order_tuples(const Selects &selects, TupleSet& tuple_set, int size) {
@@ -495,7 +599,7 @@ bool check_expression(const char* exp) {
   return true;
 }
 
-float calculate(std::string s) {
+float calculate(std::string s, bool& is_valid) {
   LOG_DEBUG("expression is %s",s.c_str());
   std::stack<float> st;
   float num = 0;
@@ -522,7 +626,7 @@ float calculate(std::string s) {
         if (s[i] == ')') count --;
         if (count == 0) break;
       }
-      num = calculate(s.substr(j + 1, i - j - 1));
+      num = calculate(s.substr(j + 1, i - j - 1),is_valid);
     }
     if (c!='.'&& !isdigit(c) && !isspace(c) || i == s.size() - 1){
       if (op == '+') st.push(num);
@@ -531,7 +635,13 @@ float calculate(std::string s) {
         float top = st.top();
         st.pop();
         if (op == '*') st.push(top * num);
-        if (op == '/') st.push(top / num);
+        if (op == '/'){
+          if(num==0) {
+            is_valid=false;
+            return 0;
+          }
+          st.push(top / num);
+        }
       }
       op = s[i];
       num = 0;
@@ -550,8 +660,8 @@ float calculate(std::string s) {
 RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, bool is_multi, TupleSet& new_set) {
   std::set<int> filter;
   LOG_DEBUG("start filte exp condition");
-  for(int i=0;i<num;++i) {
-    auto curr=conditions[i];
+  for(int ci=0;ci<num;++ci) {
+    auto curr=conditions[ci];
     if((curr.left_is_attr&&curr.left_attr.exp==nullptr && curr.right_is_attr&&curr.right_attr.exp==nullptr)
         ||(curr.left_is_attr&&curr.left_attr.exp==nullptr && !curr.right_is_attr)
         ||(!curr.left_is_attr && curr.right_is_attr&& curr.right_attr.exp== nullptr)
@@ -570,6 +680,7 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         //开始替换字符串
         LOG_DEBUG("left is exp, %s",exp.c_str());
         for(int i=0;i<old.get_schema().size();++i) {
+
           LOG_DEBUG("try to replace field:%s",old.get_schema().field(i).to_string_without_type().c_str());
           if(is_multi) {
             while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
@@ -621,7 +732,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         }
         //todo：判断四则运算表达式是否合法
         //如果合法，开始计算
-        l_f= calculate(exp);
+        bool is_valid=true;
+        l_f= calculate(exp,is_valid);
+        if(!is_valid) {
+          return RC::INVALID_EXP;
+        }
         LOG_DEBUG("left exp value is %f",l_f);
       } else if(curr.left_is_attr) {
         //如果左边是字段
@@ -710,7 +825,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         }
         //todo：判断四则运算表达式是否合法
         //如果合法，开始计算
-        r_f= calculate(exp);
+        bool is_valid=true;
+        r_f= calculate(exp,is_valid);
+        if(!is_valid) {
+          return RC::INVALID_EXP;
+        }
         LOG_DEBUG("right exp value is %f",r_f);
       } else if(curr.right_is_attr) {
         //如果右边是字段
@@ -798,6 +917,84 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
     LOG_DEBUG("add value to new tuple");
     new_set.add(std::move(new_tuple));
   }
+  return RC::SUCCESS;
+}
+
+RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi) {
+  LOG_DEBUG("start calculate a field exp");
+  for(int ai=0;ai<num;++ai) {
+    if(attrs[ai].exp== nullptr) {
+      LOG_DEBUG("field %d is not exp, continue",ai);
+      continue;
+    }
+
+    for(int ti=0;ti<old.size();++ti) {
+      std::string exp(attrs[ai].exp);
+      LOG_DEBUG("field exp is %s",exp.c_str());
+      Tuple& tuple=old.get(ti);
+      for(int i=0;i<old.get_schema().size();++i) {
+        if(old.get_schema().field(i).get_epx()!= nullptr) {
+          continue;
+        }
+        LOG_DEBUG("try to replace field:%s",old.get_schema().field(i).to_string_without_type().c_str());
+        if(is_multi) {
+          while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+            const TupleValue& value=tuple.get(i);
+            if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+              return RC::INVALID_EXP;
+            }
+            int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+            int length=old.get_schema().field(i).to_string_without_type().size();
+            std::stringstream ss;
+            value.to_string(ss);
+            exp.replace(begin,length,ss.str().c_str());
+            LOG_DEBUG("after replace exp is %s",exp.c_str());
+          }
+        } else {
+          while(exp.find(old.get_schema().field(i).to_string_without_type())!=exp.npos) {
+            const TupleValue& value=tuple.get(i);
+            if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+              LOG_DEBUG("field:%s is type:%d, invalid exp",old.get_schema().field(i).to_string().c_str(),value.get_type());
+              return RC::INVALID_EXP;
+            }
+            int begin=exp.find(old.get_schema().field(i).to_string_without_type());
+            int length=old.get_schema().field(i).to_string_without_type().size();
+            std::stringstream ss;
+            value.to_string(ss);
+            exp.replace(begin,length,ss.str().c_str());
+            LOG_DEBUG("after replace exp is %s",exp.c_str());
+          }
+          while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
+            const TupleValue& value=tuple.get(i);
+            if(value.get_type()!=INTS&&value.get_type()!=FLOATS) {
+              LOG_DEBUG("field:%s is type:%d, invalid exp",old.get_schema().field(i).to_string_without_type().c_str(),value.get_type());
+              return RC::INVALID_EXP;
+            }
+            int begin=exp.find(old.get_schema().field(i).field_name());
+            int length=strlen(old.get_schema().field(i).field_name());
+            std::stringstream ss;
+            value.to_string(ss);
+            LOG_DEBUG("replace field:%s,begin:%d,length:%d",old.get_schema().field(i).field_name(),begin,length);
+            exp.replace(begin,length,ss.str().c_str());
+            LOG_DEBUG("after replace exp is %s",exp.c_str());
+          }
+        }
+      }
+      if(!check_expression(exp.c_str())) {
+        return RC::INVALID_EXP;
+      }
+      bool is_valid=true;
+      float f_v=calculate(exp,is_valid);
+      if(!is_valid) {
+        LOG_DEBUG("exp is invalid");
+        return RC::INVALID_EXP;
+      }
+      tuple.add(f_v);
+    }
+    old.get_schema().add(attrs[ai].exp);
+    LOG_DEBUG("add a new tuple field");
+  }
+  LOG_DEBUG("end field calculate");
   return RC::SUCCESS;
 }
 
@@ -897,15 +1094,25 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       //获取打印顺序
 
       TupleSchema res_schema;
-      print_order=get_print_order(selects,res_set,res_schema);
+      TupleSet exp_set;
+      if(expression_condition(res_set.back(),selects.condition_num,selects.conditions, true,exp_set)!=RC::SUCCESS) {
+        ss.clear();
+        ss << "FAILURE\n";
+        break;
+      }
+      exp_set.set_schema(res_set.back().get_schema());
+      if(field_expression(exp_set,selects.attr_num,selects.attributes,true)!=RC::SUCCESS) {
+        ss.clear();
+        ss << "FAILURE\n";
+        break;
+      }
+      std::vector<TupleSet> exp_sets;
+      exp_sets.emplace_back(std::move(exp_set));
+      print_order=get_print_order(selects,exp_sets,res_schema);
       if(print_order.empty()) {
         ss.clear();
         ss << "FAILURE\n";
         LOG_DEBUG("get print order condition failure");
-        break;
-      }
-      TupleSet exp_set;
-      if(expression_condition(res_set.back(),selects.condition_num,selects.conditions, true,exp_set)!=RC::SUCCESS) {
         break;
       }
       //获取最终打印表
@@ -914,17 +1121,25 @@ RC ExecuteStage::do_select(const char *db, Query *sql, SessionEvent *session_eve
       //tuples.clear();
       //cond_record.clear();
       //print_tuple_sets(res_set,0,tuples,ss,print_order,selects,cond_record,res);
-      exp_set.set_schema(res_set.back().get_schema());
-      exp_set.print_by_order(ss,print_order);
+      exp_sets.back().print_by_order(ss,print_order);
       break;
     }
   } else {
     // 当前只查询一张表，直接返回结果即可
     if(order_tuples(selects,tuple_sets.front(),1)) {
+      std::vector<TupleSet> res_sets;
       TupleSet res_set;
-      if(expression_condition(tuple_sets.front(),selects.condition_num,selects.conditions,false,res_set)==RC::SUCCESS) {
-        res_set.set_schema(tuple_sets.front().get_schema());
-        res_set.print(ss);
+      res_sets.emplace_back(std::move(res_set));
+      if(expression_condition(tuple_sets.front(),selects.condition_num,selects.conditions,false,res_sets.back())==RC::SUCCESS) {
+        res_sets.back().set_schema(tuple_sets.front().get_schema());
+        if(field_expression(res_sets.back(),selects.attr_num,selects.attributes, false)==RC::SUCCESS) {
+          TupleSchema res_schema;
+          auto print_order=get_print_order_single(selects,res_sets,res_schema);
+          res_sets.back().print_by_order(ss,print_order, false);
+        } else {
+          ss.clear();
+          ss << "FAILURE\n";
+        }
       } else {
         ss.clear();
         ss << "FAILURE\n";
@@ -1053,16 +1268,28 @@ RC create_selection_executor(Trx *trx, const Selects &selects, const char *db, c
   LOG_DEBUG("add %s table schema",table->name());
   for (int i = selects.attr_num - 1; i >= 0; i--) {
     const RelAttr &attr = selects.attributes[i];
-    if(selects.group_attr_num!=0 && selects.relation_num>1){
-      TupleSchema::from_table(table, schema);
-      break; // 没有校验，给出* 之后，再写字段的错误
+    if(attr.exp!= nullptr) {
+      //如果是表达式，找出字段下推到表扫描中
+      LOG_DEBUG("field %s is a exp",attr.exp);
+      std::string s1(attr.exp);
+      for(int i=0;i<table->table_meta().field_num();++i) {
+        auto field=table->table_meta().field(i);
+        if(s1.find(std::string(table_name)+"."+field->name())!=s1.npos || s1.find(field->name())!=s1.npos) {
+          RC rc = schema_add_field(table, field->name(), schema);
+          LOG_DEBUG("select field is exp,add field %s.%s to schema",table->name(),field->name());
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+      }
     }
-    if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
-      if (0 == strcmp("*", attr.attribute_name))  {
+    else if (nullptr == attr.relation_name || 0 == strcmp(table_name, attr.relation_name)) {
+      //如果不是表达式，走原有逻辑
+      if (0 == strcmp("*", attr.attribute_name)) {
         // 列出这张表所有字段
         TupleSchema::from_table(table, schema);
         break; // 没有校验，给出* 之后，再写字段的错误
-      } else {
+      } else  {
         // 列出这张表相关字段
         RC rc = schema_add_field(table, attr.attribute_name, schema);
         if (rc != RC::SUCCESS) {
