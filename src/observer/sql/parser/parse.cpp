@@ -586,12 +586,7 @@ void drop_table_destroy(DropTable *drop_table) {
 }
 
 void create_index_list_append(CreateIndexList *create_index_list, CreateIndex *create_index) {
-  create_index_list->index[create_index_list->index_num+1] = *create_index;
-  create_index_list->index_num++;
-}
-
-void create_index_set_first(CreateIndexList *create_index_list, CreateIndex *create_index) {
-  create_index_list->index[0] = *create_index;
+  create_index_list->index[create_index_list->index_num] = *create_index;
   create_index_list->index_num++;
 }
 

@@ -367,7 +367,6 @@ void drop_table_destroy(DropTable *drop_table);
 void create_index_init(CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name, int unique);
 void create_index_destroy(CreateIndex *create_index);
 void create_index_list_append(CreateIndexList *create_index_list, CreateIndex *create_index);
-void create_index_set_first(CreateIndexList *create_index_list, CreateIndex *create_index);
 void create_index_list_init(CreateIndexList *create_index_list, const char* index_name, const char *relation_name);
 void create_index_list_destroy(CreateIndexList *create_index_list);
 void create_index_init_short(CreateIndex *create_index, const char *attr_name);
