@@ -967,7 +967,10 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         bool is_valid=true;
         l_f= calculate(exp,is_valid);
         if(!is_valid) {
-          return RC::INVALID_EXP;
+          LOG_DEBUG("calculate is invalide continue");
+          filter.insert(tuple_index);
+          tuple_index+=1;
+          continue;
         }
         LOG_DEBUG("left exp value is %f",l_f);
       } else if(curr.left_is_attr) {
@@ -1072,7 +1075,9 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         bool is_valid=true;
         r_f= calculate(exp,is_valid);
         if(!is_valid) {
-          return RC::INVALID_EXP;
+          LOG_DEBUG("calculate is invalide continue");
+          filter.insert(tuple_index);
+          tuple_index+=1;
         }
         LOG_DEBUG("right exp value is %f",r_f);
       } else if(curr.right_is_attr) {
@@ -1242,7 +1247,7 @@ RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi)
       bool is_valid=true;
       float f_v= calculate(exp,is_valid);
       if(!is_valid) {
-        LOG_DEBUG("exp is invalid");
+        LOG_DEBUG("field exp is invalid");
         return RC::INVALID_EXP;
       }
       tuple.add(f_v);
