@@ -102,7 +102,7 @@ QUOTE            [\'\"]
 ">="                                     RETURN_TOKEN(GE);
 ">"                                      RETURN_TOKEN(GT);
 
-([\+\-\*/]?[\(\)A-Za-z0-9\.]+[\+\-\*/]+[A-Za-z0-9\.]+[\(\)]?)|(\-+[\(\)A-Za-z0-9\.]+)    yylval->string=strdup(yytext);RETURN_TOKEN(EXPRESSION);
+([\+\-\*/]?[\(\)A-Za-z0-9\.]+[\+\-\*/]+[A-Za-z0-9\.]+[\(\)A-Za-z0-9\.\+\-\*/]*)|(\-+[\(\)A-Za-z0-9\.]+)    yylval->string=strdup(yytext);RETURN_TOKEN(EXPRESSION);
 
 {QUOTE}[\40\42\47A-Za-z0-9_/\.\-]*{QUOTE}	     yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 
