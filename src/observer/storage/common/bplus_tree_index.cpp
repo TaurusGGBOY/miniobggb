@@ -46,12 +46,9 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta,
     return rc;
   }
 
-  // TODO index
   std::vector<AttrType> attr_vec;
   std::vector<int> len_vec;
   std::vector<int> offsets;
-  // important: reverse first
-  std::reverse(field_metas.begin(),field_metas.end());
   for (auto it : field_metas) {
     attr_vec.push_back(it->type());
     len_vec.push_back(it->len());
