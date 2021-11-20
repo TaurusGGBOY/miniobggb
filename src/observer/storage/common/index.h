@@ -62,6 +62,10 @@ public:
     return field_meta_.nullable();
   }
 
+  int field_num(){
+    return index_meta_.field_num();
+  }
+
 protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
   RC init(const IndexMeta &index_meta, std::vector<const FieldMeta*> field_meta_list);
