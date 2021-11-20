@@ -45,7 +45,7 @@ RC IndexMeta::init(const char *name, std::vector<std::string> field_list) {
     }
     name_ = name;
     for (int i = 0; i<field_list.size();i++){
-      field_list_[i] = field_list[i];
+      fields.push_back(field_list[i]);
     }
     unique_ = 0;
     return RC::SUCCESS;
@@ -106,14 +106,14 @@ void IndexMeta::desc(std::ostream &os) const {
 }
 
 const int IndexMeta::field_num() const{
-  return field_num_;
+  return fields.size();
 }
 
   // return 0 if any one is same
  const int IndexMeta::have_one(std::vector<std::string> field_list) const{
     for (int i = 0; i < field_list.size(); i++) {
-        for (int j = 0; j < field_num_; j++) {
-            if (field_list_[j].compare(field_list[i]) == 0) {
+        for (int j = 0; j < field_num(); j++) {
+            if (fields[j].compare(field_list[i]) == 0) {
                 return 0;
             }
         }
@@ -123,11 +123,11 @@ const int IndexMeta::field_num() const{
 
 const int IndexMeta::compare_multi_index(std::vector<std::string> field_list) const{
   int cmp = 0;
-  if(field_list_->size()!=field_list.size()){
-    return field_list_->size()-field_list.size();
+  if(fields.size()!=field_list.size()){
+    return fields.size()-field_list.size();
   }
   for (int i = 0; i < field_list.size(); i++) {
-    cmp = field_list_[i].compare(field_list[i]);
+    cmp = fields[i].compare(field_list[i]);
       if (cmp != 0) {
           return cmp;
       }
