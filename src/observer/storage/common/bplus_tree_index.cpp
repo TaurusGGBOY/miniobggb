@@ -49,11 +49,13 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, st
   // TODO index
   std::vector<AttrType> attr_vec;
   std::vector<int> len_vec;
+  std::vector<int> offsets;
   for(auto it : field_metas){
     attr_vec.push_back(it->type());
     len_vec.push_back(it->len());
+    offsets.push_back(it->offset());
   }
-  rc = index_handler_.create_by_list(file_name, attr_vec, len_vec);
+  rc = index_handler_.create_by_list(file_name, attr_vec, len_vec, offsets);
   if (RC::SUCCESS == rc) {
     inited_ = true;
   }
@@ -85,13 +87,13 @@ RC BplusTreeIndex::close() {
 }
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) {
-  if(field_num<=1){
+  if(index_meta_.field_num()<=1){
     return index_handler_.insert_entry(record + field_meta_.offset(), rid);
   }else{
     std::vector<int> offsets;
     std::vector<AttrType> types;
     std::vector<int> lens;
-    for(int i = 0;i<field_num;i++){
+    for(int i = 0;i<index_meta_.field_num();i++){
       offsets.push_back(field_meta_list_[i]->offset());
       types.push_back(field_meta_list_[i]->type());
       lens.push_back(field_meta_list_[i]->len());
@@ -102,6 +104,19 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) {
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid) {
   return index_handler_.delete_entry(record + field_meta_.offset(), rid);
+}
+
+RC BplusTreeIndex::delete_entry_multi_index(const char *record, const RID *rid) {
+  std::vector<int> offsets;
+  std::vector<AttrType> types;
+  std::vector<int> lens;
+  for(int i = 0;i<index_meta_.field_num();i++){
+    offsets.push_back(field_meta_list_[i]->offset());
+    types.push_back(field_meta_list_[i]->type());
+    lens.push_back(field_meta_list_[i]->len());
+  }
+
+  return index_handler_.delete_entry_multi_index(record, rid, offsets, types, lens);
 }
 
 IndexScanner *BplusTreeIndex::create_scanner(CompOp comp_op, const char *value) {
