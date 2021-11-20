@@ -599,223 +599,283 @@ bool check_expression(const char* exp) {
   return true;
 }
 
-int getPriority(const std::string& op)
-{
-  int priority;
-  if (op == "#")
-    priority = 3;
-  else if (op == "*" || op == "/")
-    priority = 2;
-  else if (op == "+" || op == "-")
-    priority = 1;
-  else
-    priority = -1;
-  return priority;
-}
-//将字符串表达式分开
-std::vector<std::string> preParse(const char* str)
-{
-  std::vector<std::string> tokens;
-  int len = strlen(str);
-  char *p = (char*)malloc((len+1)*sizeof(char));
-  int i = 0, j = 0;
-  //去掉空格
-  while(i < len)
-  {
-    if(str[i] == ' ')
-    {
-      ++i;
-      continue;
+//int getPriority(const std::string& op)
+//{
+//  int priority;
+//  if (op == "#")
+//    priority = 3;
+//  else if (op == "*" || op == "/")
+//    priority = 2;
+//  else if (op == "+" || op == "-")
+//    priority = 1;
+//  else
+//    priority = -1;
+//  return priority;
+//}
+////将字符串表达式分开
+//std::vector<std::string> preParse(const char* str)
+//{
+//  std::vector<std::string> tokens;
+//  int len = strlen(str);
+//  char *p = (char*)malloc((len+1)*sizeof(char));
+//  int i = 0, j = 0;
+//  //去掉空格
+//  while(i < len)
+//  {
+//    if(str[i] == ' ')
+//    {
+//      ++i;
+//      continue;
+//    }
+//    p[j++] = str[i++];
+//  }
+//  p[j] = '\0';
+//  j = 0;
+//  len = strlen(p);
+//  bool isNeg = false;
+//  while (j < len)
+//  {
+//    char temp[2];
+//    std::string token;
+//    switch(p[j])
+//    {
+//    case '+':
+//    case '*':
+//    case '/':
+//    case '(':
+//    case ')':
+//      temp[0] = p[j];
+//      temp[1] = '\0';
+//      token = temp;
+//      tokens.push_back(token);
+//      break;
+//    case '-':
+//      if(j == 0)
+//      {
+//        //tokens.push_back("#");
+//        isNeg = true;
+//      }
+//      else if (p[j-1] == ')' || isdigit(p[j-1]))
+//      {
+//        tokens.push_back("-");
+//      }
+//      else
+//      {
+//        //tokens.push_back("#");
+//        isNeg = true;
+//      }
+//      break;
+//    default:
+//      i = j;
+//      while (  (   isdigit(p[i]) || p[i] =='.'   ) && i < len)
+//      {
+//        i++;
+//      }
+//      char *num = (char*)malloc(i-j+2);
+//      strncpy(num, p+j, i-j+1);
+//      num[i-j] = '\0';
+//      if (isNeg)
+//      {
+//        char *temp = (char*)malloc(i-j+3);
+//        temp[0] = '-';
+//        strcpy(temp+1, num);
+//        tokens.push_back(temp);
+//        isNeg = false;
+//      }
+//      else
+//      {
+//        tokens.push_back(num);
+//      }
+//
+//      j = i - 1;
+//      free(num);
+//      break;
+//    }
+//    j++;
+//  }
+//  free(p);
+//  //print(tokens);
+//  return tokens;
+//}
+//
+////两个数运算
+//void calculate(std::stack<double> & opdStack, std::string opt, bool& is_valid)
+//{
+//  if(opt == "#")
+//  {
+//    double opd = opdStack.top();
+//    double result = 0 - opd;
+//    opdStack.pop();
+//    opdStack.push(result);
+//  }
+//  else
+//  {
+//    double rOpd = opdStack.top();
+//    opdStack.pop();
+//    double lOpd = opdStack.top();
+//    opdStack.pop();
+//    double result;
+//    if(opt == "+")        result = lOpd + rOpd;
+//    else if(opt == "-")   result = lOpd - rOpd;
+//    else if(opt == "*")   result = lOpd * rOpd;
+//    else if(opt == "/")
+//    {
+//      if(rOpd==0) {
+//        is_valid=false;
+//        return ;
+//      }
+//      result = lOpd / rOpd;
+//    }
+//    opdStack.push(result);
+//  }
+//}
+//
+//
+////计算
+//double process(std::string &str, bool& is_valid)
+//{
+//  std::string  cstr=str;
+//  str.clear();
+//  for(char c:cstr) {
+//    if(c==' ') {
+//      continue;
+//    } else {
+//      str.push_back(c);
+//    }
+//  }
+//  char *s = (char *)malloc(str.size());
+//  strcpy(s, str.c_str());
+//  std::vector<std::string> tokens = preParse(s);
+//  int i = 0;
+//  int size = tokens.size();
+//
+//  std::stack<double> opdStack;    //num
+//  std::stack<std::string> optStack;    //op
+//  for(i = 0; i < size; ++i)
+//  {
+//    std::string token = tokens[i];
+//    if(token=="#"||token=="+"||token=="-"||token=="*"||token=="/")
+//    {
+//      if(optStack.size() == 0)
+//      {
+//        optStack.push(token);
+//      }
+//      else
+//      {
+//        int tokenPriority = getPriority(token);
+//        std::string topOpt = optStack.top();
+//        int topOptPritority = getPriority(topOpt);
+//        if(tokenPriority > topOptPritority)
+//        {
+//          optStack.push(token);
+//        }
+//        else
+//        {
+//          while(tokenPriority <= topOptPritority)
+//          {
+//            optStack.pop();
+//            calculate(opdStack, topOpt,is_valid);
+//            if(optStack.size()>0)
+//            {
+//              topOpt = optStack.top();
+//              topOptPritority = getPriority(topOpt);
+//            }
+//            else
+//            {
+//              break;
+//            }
+//          }
+//          optStack.push(token);
+//        }
+//      }
+//    }
+//    else if(token == "(")
+//    {
+//      optStack.push(token);
+//    }
+//    else if(token == ")")
+//    {
+//      while(optStack.top() != "(")
+//      {
+//        std::string topOpt = optStack.top();
+//        calculate(opdStack,topOpt,is_valid);
+//        optStack.pop();
+//      }
+//      optStack.pop();
+//    }
+//    else
+//    {
+//      opdStack.push(stod(token));
+//    }
+//  }
+//  while(optStack.size() != 0)
+//  {
+//    std::string topOpt = optStack.top();
+//    calculate(opdStack,topOpt,is_valid);
+//    optStack.pop();
+//  }
+//  return opdStack.top();
+//}
+
+
+float calculate(std::string s, bool& is_valid) {
+  LOG_DEBUG("expression is %s",s.c_str());
+  std::stack<float> st;
+  float num = 0;
+  float result = 0;
+  int op ='+';
+  bool decimal=false;
+  float help=10;
+  for (int i = 0; i < s.size(); i++) {
+    char c = s[i];
+    if (isdigit(c) || c=='.') {
+      if(c=='.') {
+        decimal=true;
+      } else if(decimal) {
+        num = num + (c-'0')/help;
+        help*=10;
+      } else {
+        num = num * 10 + c - '0';
+      }
     }
-    p[j++] = str[i++];
-  }
-  p[j] = '\0';
-  j = 0;
-  len = strlen(p);
-  bool isNeg = false;
-  while (j < len)
-  {
-    char temp[2];
-    std::string token;
-    switch(p[j])
-    {
-    case '+':
-    case '*':
-    case '/':
-    case '(':
-    case ')':
-      temp[0] = p[j];
-      temp[1] = '\0';
-      token = temp;
-      tokens.push_back(token);
-      break;
-    case '-':
-      if(j == 0)
-      {
-        //tokens.push_back("#");
-        isNeg = true;
+    else if (c == '(') {
+      int j = i, count = 0;
+      for (;i < s.size(); i++) {
+        if (s[i] == '(') count ++;
+        if (s[i] == ')') count --;
+        if (count == 0) break;
       }
-      else if (p[j-1] == ')' || isdigit(p[j-1]))
-      {
-        tokens.push_back("-");
-      }
-      else
-      {
-        //tokens.push_back("#");
-        isNeg = true;
-      }
-      break;
-    default:
-      i = j;
-      while (  (   isdigit(p[i]) || p[i] =='.'   ) && i < len)
-      {
-        i++;
-      }
-      char *num = (char*)malloc(i-j+2);
-      strncpy(num, p+j, i-j+1);
-      num[i-j] = '\0';
-      if (isNeg)
-      {
-        char *temp = (char*)malloc(i-j+3);
-        temp[0] = '-';
-        strcpy(temp+1, num);
-        tokens.push_back(temp);
-        isNeg = false;
-      }
-      else
-      {
-        tokens.push_back(num);
-      }
-
-      j = i - 1;
-      free(num);
-      break;
+      num = calculate(s.substr(j + 1, i - j - 1),is_valid);
     }
-    j++;
-  }
-  free(p);
-  //print(tokens);
-  return tokens;
-}
-
-//两个数运算
-void calculate(std::stack<double> & opdStack, std::string opt, bool& is_valid)
-{
-  if(opt == "#")
-  {
-    double opd = opdStack.top();
-    double result = 0 - opd;
-    opdStack.pop();
-    opdStack.push(result);
-  }
-  else
-  {
-    double rOpd = opdStack.top();
-    opdStack.pop();
-    double lOpd = opdStack.top();
-    opdStack.pop();
-    double result;
-    if(opt == "+")        result = lOpd + rOpd;
-    else if(opt == "-")   result = lOpd - rOpd;
-    else if(opt == "*")   result = lOpd * rOpd;
-    else if(opt == "/")
-    {
-      if(rOpd==0) {
-        is_valid=false;
-        return ;
-      }
-      result = lOpd / rOpd;
-    }
-    opdStack.push(result);
-  }
-}
-
-
-//计算
-double process(std::string &str, bool& is_valid)
-{
-  std::string  cstr=str;
-  str.clear();
-  for(char c:cstr) {
-    if(c==' ') {
-      continue;
-    } else {
-      str.push_back(c);
-    }
-  }
-  char *s = (char *)malloc(str.size());
-  strcpy(s, str.c_str());
-  std::vector<std::string> tokens = preParse(s);
-  int i = 0;
-  int size = tokens.size();
-
-  std::stack<double> opdStack;    //num
-  std::stack<std::string> optStack;    //op
-  for(i = 0; i < size; ++i)
-  {
-    std::string token = tokens[i];
-    if(token=="#"||token=="+"||token=="-"||token=="*"||token=="/")
-    {
-      if(optStack.size() == 0)
-      {
-        optStack.push(token);
-      }
-      else
-      {
-        int tokenPriority = getPriority(token);
-        std::string topOpt = optStack.top();
-        int topOptPritority = getPriority(topOpt);
-        if(tokenPriority > topOptPritority)
-        {
-          optStack.push(token);
-        }
-        else
-        {
-          while(tokenPriority <= topOptPritority)
-          {
-            optStack.pop();
-            calculate(opdStack, topOpt,is_valid);
-            if(optStack.size()>0)
-            {
-              topOpt = optStack.top();
-              topOptPritority = getPriority(topOpt);
-            }
-            else
-            {
-              break;
-            }
+    if (c!='.'&& !isdigit(c) && !isspace(c) || i == s.size() - 1){
+      if (op == '+') st.push(num);
+      if (op == '-') st.push(-num);
+      if (op == '*' || op == '/') {
+        float top = st.top();
+        st.pop();
+        if (op == '*') st.push(top * num);
+        if (op == '/'){
+          if(num==0) {
+            is_valid=false;
+            return 0;
           }
-          optStack.push(token);
+          st.push(top / num);
         }
       }
-    }
-    else if(token == "(")
-    {
-      optStack.push(token);
-    }
-    else if(token == ")")
-    {
-      while(optStack.top() != "(")
-      {
-        std::string topOpt = optStack.top();
-        calculate(opdStack,topOpt,is_valid);
-        optStack.pop();
-      }
-      optStack.pop();
-    }
-    else
-    {
-      opdStack.push(stod(token));
+      op = s[i];
+      num = 0;
+      decimal=false;
+      help=10;
     }
   }
-  while(optStack.size() != 0)
-  {
-    std::string topOpt = optStack.top();
-    calculate(opdStack,topOpt,is_valid);
-    optStack.pop();
+
+  while (!st.empty()) {
+    result += st.top();
+    st.pop();
   }
-  return opdStack.top();
+  return result;
 }
+
 
 RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, bool is_multi, TupleSet& new_set) {
   std::set<int> filter;
@@ -852,7 +912,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               int length=old.get_schema().field(i).to_string_without_type().size();
               std::stringstream ss;
               value.to_string(ss);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
               LOG_DEBUG("after replace exp is %s",exp.c_str());
             }
           } else {
@@ -867,7 +931,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               int length=old.get_schema().field(i).to_string_without_type().size();
               std::stringstream ss;
               value.to_string(ss);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
               LOG_DEBUG("after replace exp is %s",exp.c_str());
             }
             while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
@@ -881,7 +949,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               std::stringstream ss;
               value.to_string(ss);
               LOG_DEBUG("replace field:%s,begin:%d,length:%d",old.get_schema().field(i).field_name(),begin,length);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
               LOG_DEBUG("after replace exp is %s",exp.c_str());
             }
           }
@@ -893,7 +965,7 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         //todo：判断四则运算表达式是否合法
         //如果合法，开始计算
         bool is_valid=true;
-        l_f= process(exp,is_valid);
+        l_f= calculate(exp,is_valid);
         if(!is_valid) {
           return RC::INVALID_EXP;
         }
@@ -951,7 +1023,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               int length=old.get_schema().field(i).to_string_without_type().size();
               std::stringstream ss;
               value.to_string(ss);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
             }
           } else {
             //如果是单表，可能是不带表名字的
@@ -964,7 +1040,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               int length=old.get_schema().field(i).to_string_without_type().size();
               std::stringstream ss;
               value.to_string(ss);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
             }
             while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
               const TupleValue& value=tuple.get(i);
@@ -975,7 +1055,11 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
               int length=strlen(old.get_schema().field(i).field_name());
               std::stringstream ss;
               value.to_string(ss);
-              exp.replace(begin,length,ss.str().c_str());
+              std::string number=ss.str();
+              if(number[0]=='-') {
+                number="("+number+")";
+              }
+              exp.replace(begin,length,number);
             }
           };
         }
@@ -986,7 +1070,7 @@ RC expression_condition(TupleSet& old, size_t num,const Condition* conditions, b
         //todo：判断四则运算表达式是否合法
         //如果合法，开始计算
         bool is_valid=true;
-        r_f= process(exp,is_valid);
+        r_f= calculate(exp,is_valid);
         if(!is_valid) {
           return RC::INVALID_EXP;
         }
@@ -1107,7 +1191,11 @@ RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi)
             int length=old.get_schema().field(i).to_string_without_type().size();
             std::stringstream ss;
             value.to_string(ss);
-            exp.replace(begin,length,ss.str().c_str());
+            std::string number=ss.str();
+            if(number[0]=='-') {
+              number="("+number+")";
+            }
+            exp.replace(begin,length,number);
             LOG_DEBUG("after replace exp is %s",exp.c_str());
           }
         } else {
@@ -1121,7 +1209,11 @@ RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi)
             int length=old.get_schema().field(i).to_string_without_type().size();
             std::stringstream ss;
             value.to_string(ss);
-            exp.replace(begin,length,ss.str().c_str());
+            std::string number=ss.str();
+            if(number[0]=='-') {
+              number="("+number+")";
+            }
+            exp.replace(begin,length,number);
             LOG_DEBUG("after replace exp is %s",exp.c_str());
           }
           while(exp.find(old.get_schema().field(i).field_name())!=exp.npos) {
@@ -1135,7 +1227,11 @@ RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi)
             std::stringstream ss;
             value.to_string(ss);
             LOG_DEBUG("replace field:%s,begin:%d,length:%d",old.get_schema().field(i).field_name(),begin,length);
-            exp.replace(begin,length,ss.str().c_str());
+            std::string number=ss.str();
+            if(number[0]=='-') {
+              number="("+number+")";
+            }
+            exp.replace(begin,length,number);
             LOG_DEBUG("after replace exp is %s",exp.c_str());
           }
         }
@@ -1144,7 +1240,7 @@ RC field_expression(TupleSet& old, int num, const RelAttr* attrs, bool is_multi)
         return RC::INVALID_EXP;
       }
       bool is_valid=true;
-      float f_v= process(exp,is_valid);
+      float f_v= calculate(exp,is_valid);
       if(!is_valid) {
         LOG_DEBUG("exp is invalid");
         return RC::INVALID_EXP;
