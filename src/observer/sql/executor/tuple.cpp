@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <regex>
 #include "storage/common/bitmap.h"
+#include <sstream>
 
 
 Tuple::Tuple(const Tuple &other) {
@@ -80,6 +81,9 @@ std::string TupleField::to_string() const {
   return std::string(table_name_) + "." + field_name_ + std::to_string(type_);
 }
 
+std::string TupleField::to_string_without_type() const {
+  return std::string(table_name_) + "." + field_name_;
+}
 ////////////////////////////////////////////////////////////////////////////////
 void TupleSchema::from_table(const Table *table, TupleSchema &schema) {
   const char *table_name = table->name();
@@ -300,6 +304,18 @@ void TupleSet::print_by_order(std::ostream &os, std::vector<std::pair<int,int>>&
       }
     }
   }
+}
+
+int TupleSet::get_field_index(const char* table_name,const char* field_name) {
+  for(int i=0;i<schema_.fields().size();++i) {
+    auto f=schema_.fields()[i];
+    if(table_name!= nullptr&&strcmp(f.table_name(),table_name)==0 && strcmp(f.field_name(),field_name)==0) {
+      return i;
+    } else if(table_name== nullptr&& strcmp(f.field_name(),field_name)==0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 void TupleSet::print(std::ostream &os, bool table_name) const {

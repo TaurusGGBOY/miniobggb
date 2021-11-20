@@ -90,6 +90,7 @@ public:
   }
 
   std::string to_string() const;
+  std::string to_string_without_type() const;
 private:
   AttrType  type_;
   std::string table_name_;
@@ -188,6 +189,7 @@ public:
   const std::vector<Tuple> &tuples() const;
   void print_by_order(std::ostream &os, std::vector<std::pair<int,int>>& print_order) const;
   void print(std::ostream &os, bool table_name=false) const;
+  int get_field_index(const char* table_name,const char* field_name);
 public:
   const TupleSchema &schema() const {
     return schema_;

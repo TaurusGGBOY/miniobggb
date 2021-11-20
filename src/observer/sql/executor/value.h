@@ -48,7 +48,6 @@ public:
   }
 
   int compare(const TupleValue &other) const override;
-  
 
   AttrType get_type() const override{
     return AttrType::INTS;
@@ -57,6 +56,8 @@ public:
   int get_value() const{
     return this->value_;
   }
+
+
 
   void compare_and_set(const TupleValue& right,bool greater){
     if(right.get_type()==INTS){

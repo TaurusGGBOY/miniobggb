@@ -44,6 +44,7 @@ typedef struct {
   char *relation_name;   // relation name (may be NULL) 表名
   char *attribute_name;  // attribute name              属性名
   enum AggregationTypeFlag agg_type;
+  char *exp;
 } RelAttr;
 
 typedef enum {
@@ -308,7 +309,8 @@ extern "C" {
 
 void order_attr_init(OrderAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* is_asc);
 void order_attr_destroy(OrderAttr *relation_attr);
-void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name, const char* type_name);
+void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
+void relation_exp_attr_init(RelAttr *relation_attr, const char *exp);
 void relation_attr_destroy(RelAttr *relation_attr);
 
 void value_init_integer(Value *value, int v);
