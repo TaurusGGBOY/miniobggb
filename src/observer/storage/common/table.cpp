@@ -1202,7 +1202,10 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
         continue;
       }
     }
-
+    // TODO temporary close
+    if(index->field_num() >= 1){
+      continue;
+    }
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
       break;
@@ -1218,7 +1221,9 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid,
   int bitmap_offset = null_offset();
   for (Index *index : indexes_) {
     if (index->index_meta().field_num() >= 1) {
-      rc = index->delete_entry_multi_index(record, &rid);
+      // TODO temp close
+      continue;
+      //rc = index->delete_entry_multi_index(record, &rid);
     } else {
       int ind = table_meta_.field_index(index->index_meta().field());
       if (bitmap.get_null_at_index(record + bitmap_offset, ind - 2) == 1) {
@@ -1365,7 +1370,7 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
       }
     }
   }
-
+  
   if (comop_list.size() > 0) {
     IndexScanner *scanner =
         find_index_for_scan_by_list(filter_attr_list, value_list, comop_list);
@@ -1374,16 +1379,17 @@ IndexScanner *Table::find_index_for_scan(const ConditionFilter *filter) {
     }
   }
 
-  if (composite_condition_filter != nullptr) {
-    int filter_num = composite_condition_filter->filter_num();
-    for (int i = 0; i < filter_num; i++) {
-      IndexScanner *scanner =
-          find_index_for_scan(&composite_condition_filter->filter(i));
-      if (scanner != nullptr) {
-        return scanner; // 可以找到一个最优的，比如比较符号是=
-      }
-    }
-  }
+  // TODO temp close
+  // if (composite_condition_filter != nullptr) {
+  //   int filter_num = composite_condition_filter->filter_num();
+  //   for (int i = 0; i < filter_num; i++) {
+  //     IndexScanner *scanner =
+  //         find_index_for_scan(&composite_condition_filter->filter(i));
+  //     if (scanner != nullptr) {
+  //       return scanner; // 可以找到一个最优的，比如比较符号是=
+  //     }
+  //   }
+  // }
   return nullptr;
 }
 
@@ -1391,6 +1397,8 @@ IndexScanner *
 Table::find_index_for_scan_by_list(std::vector<std::string> filter_attr_list,
                                    std::vector<std::string> value_list,
                                    std::vector<CompOp> comop_list) {
+  // TODO temporary close
+  return nullptr;
   Index *index = find_index_multi_index(filter_attr_list);
   if (nullptr == index) {
     return nullptr;
