@@ -1765,7 +1765,7 @@ yyreduce:
 		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list ,(yyvsp[-7].string), (yyvsp[-5].string));
 		CreateIndex c_i;
 		create_index_init_short(&c_i, (yyvsp[-3].string));
-		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		create_index_list_append(&CONTEXT->ssql->sstr.create_index_list, &c_i);
 		CONTEXT->index_length++;
 	}
 #line 1772 "yacc_sql.tab.c"
@@ -1778,7 +1778,7 @@ yyreduce:
 		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list, (yyvsp[-6].string), (yyvsp[-4].string));
 		CreateIndex c_i;
 		create_index_init(&c_i, (yyvsp[-6].string), (yyvsp[-4].string), (yyvsp[-2].string), 1);
-		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		create_index_list_append(&CONTEXT->ssql->sstr.create_index_list, &c_i);
 		CONTEXT->index_length++;
 	}
 #line 1785 "yacc_sql.tab.c"

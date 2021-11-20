@@ -239,7 +239,7 @@ create_index:		/*create index 语句的语法解析树*/
 		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list ,$3, $5);
 		CreateIndex c_i;
 		create_index_init_short(&c_i, $7);
-		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		create_index_list_append(&CONTEXT->ssql->sstr.create_index_list, &c_i);
 		CONTEXT->index_length++;
 	}
 	|CREATE UNIQUEINDEX ID ON ID LBRACE ID RBRACE SEMICOLON {
@@ -247,7 +247,7 @@ create_index:		/*create index 语句的语法解析树*/
 		create_index_list_init(&CONTEXT->ssql->sstr.create_index_list, $3, $5);
 		CreateIndex c_i;
 		create_index_init(&c_i, $3, $5, $7, 1);
-		create_index_set_first(&CONTEXT->ssql->sstr.create_index_list, &c_i);
+		create_index_list_append(&CONTEXT->ssql->sstr.create_index_list, &c_i);
 		CONTEXT->index_length++;
 	}
     ;
