@@ -1022,12 +1022,12 @@ RC GroupTupleSet::set_by_field(Selects* select,bool is_multitable){
   is_multi = is_multitable;
   const TupleSchema& input_schema = input_->get_schema();
   for(size_t j=0;j!=input_schema.size();j++){
-    LOG_DEBUG("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+    LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
   }
   if(is_multitable){
     for(size_t i=0;i!=select->group_attr_num;i++){
       for(size_t j=0;j!=input_schema.size();j++){
-        LOG_DEBUG("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+        //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
         if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0
           && std::strcmp(select->group_attr[i].relation_name,input_schema.field(j).table_name())==0){
             by_index.push_back(j);
@@ -1039,7 +1039,7 @@ RC GroupTupleSet::set_by_field(Selects* select,bool is_multitable){
   else{
     for(size_t i=0;i!=select->group_attr_num;i++){
       for(size_t j=0;j!=input_schema.size();j++){
-        LOG_DEBUG("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
+        //LOG_TRACE("Get tuplefiled %s.%s",input_schema.field(j).table_name(),input_schema.field(j).field_name());
         if(std::strcmp(select->group_attr[i].attribute_name,input_schema.field(j).field_name()) ==0){
             by_index.push_back(j);
             break;
