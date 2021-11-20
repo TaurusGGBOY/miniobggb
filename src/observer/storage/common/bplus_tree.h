@@ -26,9 +26,10 @@ struct IndexFileHeader {
   int node_num;
   int order;
 
-  int attr_num;
-  AttrType attr_list[MAX_NUM];
-  int len_list[MAX_NUM];
+  std::vector<AttrType> types;
+  std::vector<int> lens;
+  std::vector<int> origin_offsets;
+  std::vector<int> new_offsets;
 };
 
 struct IndexNode {
@@ -64,7 +65,7 @@ public:
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
   RC create(const char *file_name, AttrType attr_type, int attr_length);
-  RC create_by_list(const char *file_name, std::vector<AttrType> attr_vec, std::vector<int> len_vec);
+  RC create_by_list(const char *file_name, std::vector<AttrType> attr_vec, std::vector<int> len_vec, std::vector<int> offsets);
 
   /**
    * 打开名为fileName的索引文件。
@@ -122,6 +123,8 @@ protected:
   RC find_first_index_satisfied_multi_index(std::vector<CompOp> comop_list, const char *key, PageNum *page_num, int *rididx,  std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
   RC get_first_leaf_page(PageNum *leaf_page);
   RC find_leaf_multi_index(const char *pkey, PageNum *leaf_page, std::vector<int> offsets, std::vector<AttrType> types, std::vector<int> lens);
+  RC insert_into_leaf_multi_index(PageNum leaf_page, const char *pkey, const RID *rid);
+  RC insert_into_leaf_after_split_multi_index(PageNum leaf_page, const char *pkey, const RID *rid);
 private:
   IndexNode *get_index_node(char *page_data) const;
 

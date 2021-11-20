@@ -1135,7 +1135,11 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
     if(bitmap.get_null_at_index(record+bitmap_offset, ind-2)==1){
       continue;
     }
-    rc = index->delete_entry(record, &rid);
+    if(index->index_meta().field_num()>1){
+      rc = index->delete_entry_multi_index(record, &rid);
+    }else{
+      rc = index->delete_entry(record, &rid);
+    }
     if (rc != RC::SUCCESS) {
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;

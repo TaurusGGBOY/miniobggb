@@ -44,7 +44,7 @@ public:
 
   virtual RC insert_entry(const char *record, const RID *rid) = 0;
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
-
+  virtual RC delete_entry_multi_index(const char *record, const RID *rid) =0;
   virtual IndexScanner *create_scanner(CompOp comp_op, const char *value) = 0;
   virtual IndexScanner *create_scanner_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list) = 0;
 
@@ -68,7 +68,6 @@ protected:
 protected:
   IndexMeta   index_meta_;
   FieldMeta   field_meta_;    /// 当前实现仅考虑一个字段的索引
-  int field_num;
   const FieldMeta* field_meta_list_[MAX_NUM];
 };
 

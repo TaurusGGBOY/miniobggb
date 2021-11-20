@@ -30,6 +30,7 @@ public:
 
   RC insert_entry(const char *record, const RID *rid) override;
   RC delete_entry(const char *record, const RID *rid) override;
+  RC delete_entry_multi_index(const char *record, const RID *rid) override;
 
   IndexScanner *create_scanner(CompOp comp_op, const char *value) override;
   IndexScanner *create_scanner_multi_index(std::vector<std::string> value_list, std::vector<CompOp> comop_list) override;
